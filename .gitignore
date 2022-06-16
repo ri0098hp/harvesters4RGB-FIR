@@ -1,0 +1,13 @@
+*
+!*.gitignore
+!*.py
+!*.ipynb
+!Pipfile*
+!*.cfg
+!*.yaml
+!*.txt
+!*.md
+!*.in
+!*.ini
+!/src/
+!/docs/

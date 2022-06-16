@@ -1,0 +1,2 @@
+genicam<1.2
+numpy
