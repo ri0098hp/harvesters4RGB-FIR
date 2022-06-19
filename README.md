@@ -49,7 +49,7 @@ python RGB-FIRCamera.py
 # 補足
 動画から連番画像はffmpegを叩けばよい. 以下のコマンドをPowerShellで実行する. 
 ```ps
-ffmpeg -i input.mp4 -vcodec jpg -r 30 image_%04d.jpg
+ffmpeg -i ./RGB.mp4 -q:v 1 -r 30 ./RGB_raw/%04d.jpg
 ```
 
 ユーザパラメータ
