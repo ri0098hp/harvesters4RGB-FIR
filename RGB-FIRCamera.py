@@ -1,4 +1,5 @@
 from harvesters.core import Harvester
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 import cv2
 import os
@@ -9,7 +10,8 @@ import numpy as np
 RGB_shape = (2048, 1536)  # (w,h)
 FIR_shape = (640, 512)
 FPS = 30
-debug = True
+debug = False
+SingleMode = True
 save_folder = r'./out'
 cti = 'mvGenTLProducer.cti'
 
@@ -87,22 +89,49 @@ def main():
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
         FIR_cam = h.create({'model': 'FLIR AX5'})
         RGB_cam.start()
+        RGB_config = RGB_cam.remote_device.node_map
+        RGB_config.TriggerMode.value = 'Off'
+        RGB_config.TriggerMode.value = 'On'
+        RGB_config.TriggerSource.value = 'Line0'
+        RGB_config.TriggerActivation.value = 'LevelHigh'
+        RGB_config.LineDebounceTime.value = 0
+        RGB_config.ExposureAuto.value = 'Continuous'
+        RGB_config.GainAuto.value = 'Continuous'
+        RGB_config.TargetBrightness.value = 128
+        RGB_config.AGCRange.value = 208
+
         FIR_cam.start()
+        FIR_config = FIR_cam.remote_device.node_map
+        FIR_config.SyncMode.value = 'SelfSyncMaster'
+        FIR_config.AcquisitionMode.value = 'Continuous'
+
         make_dirs(folder)
         RGBFIR_video = cv2.VideoWriter(
             RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
+
     elif 'STC_SCS312POE' in models:  # RGB only
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
         RGB_cam.start()
+        RGB_config = RGB_cam.remote_device.node_map
+        RGB_config.TriggerMode.value = 'Off'
+        RGB_config.ExposureAuto.value = 'Continuous'
+        RGB_config.GainAuto.value = 'Continuous'
+        RGB_config.TargetBrightness.value = 128
+        RGB_config.AGCRange.value = 208
         make_dirs(folder)
         RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
+
     elif 'FLIR AX5' in models:   # FIR only
         FIR_cam = h.create({'model': 'FLIR AX5'})
         FIR_cam.start()
+        FIR_config = FIR_cam.remote_device.node_map
+        FIR_config.SyncMode.value = 'Disabled'
+        FIR_config.AcquisitionMode.value = 'Continuous'
         make_dirs(folder)
         FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
+
     else:  # 例外処理
-        print('Invalid Parameter. Please input "0, RGB, FIR".')
+        print('E: Cannot find any devices. Please check your connection and restart')
         return
 
     RGB = np.zeros((RGB_shape[1], RGB_shape[0], 3))
@@ -131,22 +160,24 @@ def main():
                     print(f'processing... {frame}')
                     print(RGB_cam.statistics.fps)
                 RGB = get_camdata(RGB_cam, 'RGB')
-                RGB_video.write(RGB)
-                # cv2.namedWindow('RGB')
-                # cv2.imshow('RGB', RGB)
+                with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
+                    executor.submit(RGB_video.write, RGB)
+                    executor.submit(cv2.imshow('RGB', RGB))
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
-                if debug is True and frame > 300:
-                    raise Exception('debugging')
+                if debug and frame > 300:
+                    break
 
         elif 'FLIR AX5' in models:  # FIRのみ
             for frame in count():
                 if frame % 100 == 0 and frame != 0:
                     print(f'processing... {frame}')
+                    print(FIR_cam.statistics.fps)
                 FIR = get_camdata(FIR_cam, 'FIR')
-                FIR_video.write(FIR)
                 cv2.namedWindow('FIR')
-                cv2.imshow('FIR', FIR)
+                with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
+                    executor.submit(FIR_video.write, FIR)
+                    executor.submit(cv2.imshow('FIR', FIR))
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
 
