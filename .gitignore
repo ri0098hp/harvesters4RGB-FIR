@@ -9,5 +9,6 @@
 !*.md
 !*.in
 !*.ini
+!*.bat
 !/src/
 !/docs/

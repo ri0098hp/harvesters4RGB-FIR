@@ -1,6 +1,5 @@
-# マルチスレッド化...?
-
 from harvesters.core import Harvester
+from itertools import count
 import cv2
 import os
 import numpy as np
@@ -10,6 +9,7 @@ import numpy as np
 RGB_shape = (2048, 1536)  # (w,h)
 FIR_shape = (640, 512)
 FPS = 30
+debug = True
 save_folder = r'./out'
 cti = 'mvGenTLProducer.cti'
 
@@ -54,7 +54,7 @@ def make_dirs(folder):
 # --------------------------------------------------
 def get_camdata(cam, flag):
     with cam.fetch() as buffer:
-        print(cam.statistics.fps)
+        # print(cam.statistics.fps)
         component = buffer.payload.components[0]
         width = component.width
         height = component.height
@@ -70,10 +70,10 @@ def main():
     # Connect to Camera
     h = Harvester()
     h.add_file(os.path.join(os.getenv('GENICAM_GENTL64_PATH'), cti))
+
     h.update()
-    print('認識したデバイス')
-    for device in h.device_info_list:
-        print(device.property_dict.get('model'))
+    models = [d.property_dict.get('model') for d in h.device_info_list]
+    print(f'認識したデバイス{models}')
 
     # Setup folders and files
     folder = os.path.join(save_folder, get_datetime())
@@ -83,45 +83,38 @@ def main():
     RGB_FIR_fp = os.path.join(folder, 'RGB-FIR.mp4')
 
     # Select a mode
-    print('Input Mode "0, RGB, FIR"')
-    while True:
-        flag = input()
-        if flag == '0':  # RGB-FIR
-            RGB_cam = h.create({'model': 'STC_SCS312POE'})
-            FIR_cam = h.create({'model': 'FLIR AX5'})
-            RGB_cam.start()
-            FIR_cam.start()
-            make_dirs(folder)
-            RGBFIR_video = cv2.VideoWriter(
-                RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
-            break
-        elif flag == 'RGB':  # RGB only
-            RGB_cam = h.create({'model': 'STC_SCS312POE'})
-            RGB_cam.start()
-            make_dirs(folder)
-            RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
-            break
-        elif flag == 'FIR':   # FIR only
-            FIR_cam = h.create({'model': 'FLIR AX5'})
-            FIR_cam.start()
-            make_dirs(folder)
-            FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
-            break
-        elif '&' in flag:  # VScodeのコマンド除外
-            pass
-        else:  # 例外処理
-            print('Invalid Parameter. Please input "0, RGB, FIR".')
+    if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
+        RGB_cam = h.create({'model': 'STC_SCS312POE'})
+        FIR_cam = h.create({'model': 'FLIR AX5'})
+        RGB_cam.start()
+        FIR_cam.start()
+        make_dirs(folder)
+        RGBFIR_video = cv2.VideoWriter(
+            RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
+    elif 'STC_SCS312POE' in models:  # RGB only
+        RGB_cam = h.create({'model': 'STC_SCS312POE'})
+        RGB_cam.start()
+        make_dirs(folder)
+        RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
+    elif 'FLIR AX5' in models:   # FIR only
+        FIR_cam = h.create({'model': 'FLIR AX5'})
+        FIR_cam.start()
+        make_dirs(folder)
+        FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
+    else:  # 例外処理
+        print('Invalid Parameter. Please input "0, RGB, FIR".')
+        return
 
+    RGB = np.zeros((RGB_shape[1], RGB_shape[0], 3))
+    FIR = np.zeros((FIR_shape[1], FIR_shape[0], 3))
+
+    print('start')
     try:
-        frame = 0
-        RGB = np.zeros((RGB_shape[1], RGB_shape[0], 3))
-        FIR = np.zeros((FIR_shape[1], FIR_shape[0], 3))
-
-        print('start')
-        if flag == '0':  # RGB-FIR
-            while True:
+        if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
+            for frame in count():
                 if frame % 100 == 0 and frame != 0:
                     print(f'processing... {frame}')
+                    print(RGB_cam.statistics.fps)
                 RGB = get_camdata(RGB_cam, 'RGB')
                 FIR = get_camdata(FIR_cam, 'FIR')
                 concat = np.concatenate(
@@ -131,22 +124,23 @@ def main():
                 cv2.imshow('RGB-FIR', concat)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
-                frame = frame + 1
 
-        elif flag == 'RGB':  # RGBのみ
-            while True:
+        elif 'STC_SCS312POE' in models:  # RGBのみ
+            for frame in count():
                 if frame % 100 == 0 and frame != 0:
                     print(f'processing... {frame}')
+                    print(RGB_cam.statistics.fps)
                 RGB = get_camdata(RGB_cam, 'RGB')
                 RGB_video.write(RGB)
-                cv2.namedWindow('RGB')
-                cv2.imshow('RGB', RGB)
+                # cv2.namedWindow('RGB')
+                # cv2.imshow('RGB', RGB)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
-                frame = frame + 1
+                if debug is True and frame > 300:
+                    raise Exception('debugging')
 
-        elif flag == 'FIR':  # FIRのみ
-            while True:
+        elif 'FLIR AX5' in models:  # FIRのみ
+            for frame in count():
                 if frame % 100 == 0 and frame != 0:
                     print(f'processing... {frame}')
                 FIR = get_camdata(FIR_cam, 'FIR')
@@ -155,24 +149,23 @@ def main():
                 cv2.imshow('FIR', FIR)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
-                frame = frame + 1
 
     except Exception as e:  # 例外処理
         print(f'Error: {e}')
 
     finally:  # カメラやファイルをリリース
-        if flag == '0':  # RGB-FIR
+        if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
             RGB_cam.stop()
             RGB_cam.destroy()
             FIR_cam.stop()
             FIR_cam.destroy()
             RGB_video.release()
             FIR_video.release()
-        elif flag == 'RGB':  # RGBカメラのみ
+        elif 'STC_SCS312POE' in models:  # RGBカメラのみ
             RGB_cam.stop()
             RGB_cam.destroy()
             RGB_video.release()
-        elif flag == 'FIR':   # FIRカメラのみ
+        elif 'FLIR AX5' in models:   # FIRカメラのみ
             FIR_cam.stop()
             FIR_cam.destroy()
             FIR_video.release()
