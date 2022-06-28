@@ -63,6 +63,17 @@ ffmpeg -i ./FIR.mp4 -q:v 1 -r 30 ./FIR/%04d.jpg
 | cti         | ctiファイルの名前 (デフォルトは `mvGenTLProducer.cti` ) |
 
 
+カメラ概要
+| Camera | Feature  | Num                |
+| ------ | -------- | ------------------ |
+| RGB    |          |                    |
+|        | 焦点距離 | mm                 |
+|        | 撮像素子 | H:7.06mm, W:5.29mm |
+| FIR    |          |                    |
+|        | 焦点距離 | mm                 |
+|        | 撮像素子 | H: mm, W: mm       |
+
+
 # 以下引用
 >
 ># Tutorials

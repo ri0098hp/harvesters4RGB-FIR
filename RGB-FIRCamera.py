@@ -151,7 +151,7 @@ def main():
                 RGBFIR_video.write(concat)
                 cv2.namedWindow('RGB-FIR')
                 cv2.imshow('RGB-FIR', concat)
-                if cv2.waitKey(10) == ord('q'):  # 終了
+                if cv2.waitKey(10) == ord('q'):
                     break
 
         elif 'STC_SCS312POE' in models:  # RGBのみ
@@ -163,7 +163,7 @@ def main():
                 with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
                     executor.submit(RGB_video.write, RGB)
                     executor.submit(cv2.imshow('RGB', RGB))
-                if cv2.waitKey(10) == ord('q'):  # 終了
+                if cv2.waitKey(10) == ord('q'):
                     break
                 if debug and frame > 300:
                     break
@@ -178,7 +178,7 @@ def main():
                 with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
                     executor.submit(FIR_video.write, FIR)
                     executor.submit(cv2.imshow('FIR', FIR))
-                if cv2.waitKey(10) == ord('q'):  # 終了
+                if cv2.waitKey(10) == ord('q'):
                     break
 
     except Exception as e:  # 例外処理
@@ -192,11 +192,11 @@ def main():
             FIR_cam.destroy()
             RGB_video.release()
             FIR_video.release()
-        elif 'STC_SCS312POE' in models:  # RGBカメラのみ
+        elif 'STC_SCS312POE' in models:
             RGB_cam.stop()
             RGB_cam.destroy()
             RGB_video.release()
-        elif 'FLIR AX5' in models:   # FIRカメラのみ
+        elif 'FLIR AX5' in models:
             FIR_cam.stop()
             FIR_cam.destroy()
             FIR_video.release()
