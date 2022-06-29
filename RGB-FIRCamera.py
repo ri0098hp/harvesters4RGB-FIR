@@ -9,9 +9,8 @@ import numpy as np
 # ユーザパラメータ
 RGB_shape = (2048, 1536)  # (w,h)
 FIR_shape = (640, 512)
-FPS = 30
+FPS = 29.97
 debug = False
-SingleMode = True
 save_folder = r'./out'
 cti = 'mvGenTLProducer.cti'
 
@@ -55,7 +54,7 @@ def make_dirs(folder):
 # GigEのバイナリデータをcv2画像にして取得
 # --------------------------------------------------
 def get_camdata(cam, flag):
-    with cam.fetch() as buffer:
+    with cam.fetch(timeout=3) as buffer:
         # print(cam.statistics.fps)
         component = buffer.payload.components[0]
         width = component.width
@@ -88,47 +87,54 @@ def main():
     if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
         FIR_cam = h.create({'model': 'FLIR AX5'})
-        RGB_cam.start()
+
+        FIR_config = FIR_cam.remote_device.node_map
+        FIR_config.SyncMode.value = 'Disabled'
+        # FIR_config.SyncMode.value = 'SelfSyncMaster'
+        FIR_config.AcquisitionMode.value = 'Continuous'
+        FIR_cam.start()
+
         RGB_config = RGB_cam.remote_device.node_map
         RGB_config.TriggerMode.value = 'Off'
-        RGB_config.TriggerMode.value = 'On'
-        RGB_config.TriggerSource.value = 'Line0'
-        RGB_config.TriggerActivation.value = 'LevelHigh'
-        RGB_config.LineDebounceTime.value = 0
-        RGB_config.ExposureAuto.value = 'Continuous'
-        RGB_config.GainAuto.value = 'Continuous'
-        RGB_config.TargetBrightness.value = 128
-        RGB_config.AGCRange.value = 208
+        # RGB_config.TriggerMode.value = 'On'
+        # RGB_config.TriggerSource.value = 'Line0'
+        # RGB_config.TriggerActivation.value = 'LevelHigh'
+        # RGB_config.LineDebounceTime.value = 0.0
+        # RGB_config.ExposureAuto.value = 'Continuous'
+        # RGB_config.GainAuto.value = 'Continuous'
+        # RGB_config.TargetBrightness.value = 128
+        # RGB_config.AGCRange.value = 208
+        RGB_cam.start()
 
-        FIR_cam.start()
-        FIR_config = FIR_cam.remote_device.node_map
-        FIR_config.SyncMode.value = 'SelfSyncMaster'
-        FIR_config.AcquisitionMode.value = 'Continuous'
-
-        make_dirs(folder)
-        RGBFIR_video = cv2.VideoWriter(
-            RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
+        if debug is not True:
+            make_dirs(folder)
+            RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
+            FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
+            RGBFIR_video = cv2.VideoWriter(
+                RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
 
     elif 'STC_SCS312POE' in models:  # RGB only
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
-        RGB_cam.start()
         RGB_config = RGB_cam.remote_device.node_map
         RGB_config.TriggerMode.value = 'Off'
         RGB_config.ExposureAuto.value = 'Continuous'
         RGB_config.GainAuto.value = 'Continuous'
         RGB_config.TargetBrightness.value = 128
         RGB_config.AGCRange.value = 208
-        make_dirs(folder)
-        RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
+        RGB_cam.start()
+        if debug is not True:
+            make_dirs(folder)
+            RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
 
     elif 'FLIR AX5' in models:   # FIR only
         FIR_cam = h.create({'model': 'FLIR AX5'})
-        FIR_cam.start()
         FIR_config = FIR_cam.remote_device.node_map
         FIR_config.SyncMode.value = 'Disabled'
         FIR_config.AcquisitionMode.value = 'Continuous'
-        make_dirs(folder)
-        FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
+        if debug is not True:
+            make_dirs(folder)
+            FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
+        FIR_cam.start()
 
     else:  # 例外処理
         print('E: Cannot find any devices. Please check your connection and restart')
@@ -141,17 +147,28 @@ def main():
     try:
         if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
             for frame in count():
+                # if FIR_cam.statistics.fps == 0:
+                #     RGB_config.AcquisitionFrameRate.value = 29.97
+                # else:
+                #     RGB_config.AcquisitionFrameRate.value = FIR_cam.statistics.fps
+
                 if frame % 100 == 0 and frame != 0:
                     print(f'processing... {frame}')
-                    print(RGB_cam.statistics.fps)
-                RGB = get_camdata(RGB_cam, 'RGB')
+                print(RGB_cam.statistics.fps)
+                print(FIR_cam.statistics.fps)
                 FIR = get_camdata(FIR_cam, 'FIR')
+                RGB = get_camdata(RGB_cam, 'RGB')
                 concat = np.concatenate(
                     (cv2.resize(RGB, (640, 512)), FIR), axis=1)
-                RGBFIR_video.write(concat)
+                if debug is not True:
+                    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="thread") as executor:
+                        pass
+                        executor.submit(RGB_video.write, RGB)
+                        executor.submit(FIR_video.write, FIR)
+                        # executor.submit(RGBFIR_video, concat)
                 cv2.namedWindow('RGB-FIR')
                 cv2.imshow('RGB-FIR', concat)
-                if cv2.waitKey(10) == ord('q'):
+                if cv2.waitKey(10) == ord('q'):  # 終了
                     break
 
         elif 'STC_SCS312POE' in models:  # RGBのみ
@@ -163,7 +180,7 @@ def main():
                 with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
                     executor.submit(RGB_video.write, RGB)
                     executor.submit(cv2.imshow('RGB', RGB))
-                if cv2.waitKey(10) == ord('q'):
+                if cv2.waitKey(10) == ord('q'):  # 終了
                     break
                 if debug and frame > 300:
                     break
@@ -178,7 +195,7 @@ def main():
                 with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
                     executor.submit(FIR_video.write, FIR)
                     executor.submit(cv2.imshow('FIR', FIR))
-                if cv2.waitKey(10) == ord('q'):
+                if cv2.waitKey(10) == ord('q'):  # 終了
                     break
 
     except Exception as e:  # 例外処理
@@ -190,13 +207,15 @@ def main():
             RGB_cam.destroy()
             FIR_cam.stop()
             FIR_cam.destroy()
-            RGB_video.release()
-            FIR_video.release()
-        elif 'STC_SCS312POE' in models:
+            if debug is not True:
+                RGBFIR_video.release()
+                RGB_video.release()
+                FIR_video.release()
+        elif 'STC_SCS312POE' in models:  # RGBカメラのみ
             RGB_cam.stop()
             RGB_cam.destroy()
             RGB_video.release()
-        elif 'FLIR AX5' in models:
+        elif 'FLIR AX5' in models:   # FIRカメラのみ
             FIR_cam.stop()
             FIR_cam.destroy()
             FIR_video.release()
