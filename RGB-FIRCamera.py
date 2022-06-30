@@ -1,5 +1,4 @@
 from harvesters.core import Harvester
-from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 import cv2
 import os
@@ -11,6 +10,7 @@ RGB_shape = (2048, 1536)  # (w,h)
 FIR_shape = (640, 512)
 FPS = 29.97
 debug = False
+calib = False
 save_folder = r'./out'
 cti = 'mvGenTLProducer.cti'
 
@@ -137,7 +137,8 @@ def main():
         FIR_cam.start()
 
     else:  # 例外処理
-        print('E: Cannot find any devices. Please check your connection and restart')
+        print('E: Cannot find any devices. Please check your connection and restart.')
+        h.reset()
         return
 
     RGB = np.zeros((RGB_shape[1], RGB_shape[0], 3))
@@ -151,21 +152,17 @@ def main():
                 #     RGB_config.AcquisitionFrameRate.value = 29.97
                 # else:
                 #     RGB_config.AcquisitionFrameRate.value = FIR_cam.statistics.fps
-
-                if frame % 100 == 0 and frame != 0:
-                    print(f'processing... {frame}')
+                print(f'processing... {frame}')
                 print(RGB_cam.statistics.fps)
-                print(FIR_cam.statistics.fps)
+                print(str(FIR_cam.statistics.fps))
+                print('\033[3A', end='')
                 FIR = get_camdata(FIR_cam, 'FIR')
                 RGB = get_camdata(RGB_cam, 'RGB')
+                if debug is not True:
+                    RGB_video.write(RGB)
+                    FIR_video.write(FIR)
                 concat = np.concatenate(
                     (cv2.resize(RGB, (640, 512)), FIR), axis=1)
-                if debug is not True:
-                    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="thread") as executor:
-                        pass
-                        executor.submit(RGB_video.write, RGB)
-                        executor.submit(FIR_video.write, FIR)
-                        # executor.submit(RGBFIR_video, concat)
                 cv2.namedWindow('RGB-FIR')
                 cv2.imshow('RGB-FIR', concat)
                 if cv2.waitKey(10) == ord('q'):  # 終了
@@ -173,28 +170,32 @@ def main():
 
         elif 'STC_SCS312POE' in models:  # RGBのみ
             for frame in count():
-                if frame % 100 == 0 and frame != 0:
-                    print(f'processing... {frame}')
-                    print(RGB_cam.statistics.fps)
+                print(f'processing... {frame}')
+                print(str(RGB_cam.statistics.fps))
+                print('\033[2A', end='')
                 RGB = get_camdata(RGB_cam, 'RGB')
-                with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
-                    executor.submit(RGB_video.write, RGB)
-                    executor.submit(cv2.imshow('RGB', RGB))
+                if debug is not True:
+                    RGB_video.write(RGB)
+                RGB = cv2.resize(RGB, dsize=None, fx=1/3, fy=1/3)
+                if calib is True:
+                    RGB = detect(RGB)
+                cv2.namedWindow('RGB')
+                cv2.imshow('RGB', RGB)
                 if cv2.waitKey(10) == ord('q'):  # 終了
-                    break
-                if debug and frame > 300:
                     break
 
         elif 'FLIR AX5' in models:  # FIRのみ
             for frame in count():
-                if frame % 100 == 0 and frame != 0:
-                    print(f'processing... {frame}')
-                    print(FIR_cam.statistics.fps)
+                print(f'processing... {frame}')
+                print(str(FIR_cam.statistics.fps))
+                print('\033[2A', end='')
                 FIR = get_camdata(FIR_cam, 'FIR')
+                if debug is not True:
+                    FIR_video.write(FIR)
+                if calib is True:
+                    FIR = detect(FIR, True)
                 cv2.namedWindow('FIR')
-                with ThreadPoolExecutor(max_workers=2, thread_name_prefix="thread") as executor:
-                    executor.submit(FIR_video.write, FIR)
-                    executor.submit(cv2.imshow('FIR', FIR))
+                cv2.imshow('FIR', FIR)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
 
@@ -214,14 +215,27 @@ def main():
         elif 'STC_SCS312POE' in models:  # RGBカメラのみ
             RGB_cam.stop()
             RGB_cam.destroy()
-            RGB_video.release()
+            if debug is not True:
+                RGB_video.release()
         elif 'FLIR AX5' in models:   # FIRカメラのみ
             FIR_cam.stop()
             FIR_cam.destroy()
-            FIR_video.release()
+            if debug is not True:
+                FIR_video.release()
         cv2.destroyAllWindows()
         print('fin')
         h.reset()
+
+
+def detect(img, bitwise=False):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if bitwise is True:
+        gray = cv2.bitwise_not(gray)
+    ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
+    if ret is True:
+        return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
+    else:
+        return gray
 
 
 if __name__ == '__main__':
