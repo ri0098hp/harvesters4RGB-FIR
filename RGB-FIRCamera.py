@@ -1,3 +1,4 @@
+import time
 from harvesters.core import Harvester
 from itertools import count
 import cv2
@@ -5,12 +6,16 @@ import os
 import numpy as np
 
 
-# ユーザパラメータ
-RGB_shape = (2048, 1536)  # (w,h)
-FIR_shape = (640, 512)
-FPS = 29.97
-debug = False
-calib = False
+# User Parameters
+RGB_shape: tuple = (2048, 1536)  # (w,h)
+FIR_shape: tuple = (640, 512)  # (w,h)
+FPS: float = 29.970
+
+# default: False, False , True
+debug: bool = False  # disable making folder and files
+calib: bool = False  # enable calibrate
+sep_mode: bool = True  # set mode separate
+
 save_folder = r'./out'
 cti = 'mvGenTLProducer.cti'
 
@@ -38,6 +43,23 @@ def rel2abs_path(filename, attr):
     else:
         raise print(f'E: 相対パスの引数ミス [{attr}]')
     return os.path.join(datadir, filename)
+
+
+# --------------------------------------------------
+# 処理時間測定 tic -> toc
+# --------------------------------------------------
+def tic():
+    global start_time_tictoc
+    start_time_tictoc = time.time()
+
+
+def toc():
+    if 'start_time_tictoc' in globals():
+        tictoc = time.time() - start_time_tictoc
+        return tictoc
+    else:
+        print("tic has not been called")
+        return None
 
 
 # --------------------------------------------------
@@ -81,41 +103,43 @@ def main():
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     RGB_fp = os.path.join(folder, 'RGB.mp4')
     FIR_fp = os.path.join(folder, 'FIR.mp4')
-    RGB_FIR_fp = os.path.join(folder, 'RGB-FIR.mp4')
 
     # Select a mode
     if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
-        RGB_cam = h.create({'model': 'STC_SCS312POE'})
         FIR_cam = h.create({'model': 'FLIR AX5'})
-
         FIR_config = FIR_cam.remote_device.node_map
-        FIR_config.SyncMode.value = 'Disabled'
-        # FIR_config.SyncMode.value = 'SelfSyncMaster'
+        if sep_mode is True:
+            FIR_config.SyncMode.value = 'Disabled'
+        else:
+            FIR_config.SyncMode.value = 'SelfSyncMaster'
         FIR_config.AcquisitionMode.value = 'Continuous'
         FIR_cam.start()
 
+        RGB_cam = h.create({'model': 'STC_SCS312POE'})
         RGB_config = RGB_cam.remote_device.node_map
-        RGB_config.TriggerMode.value = 'Off'
-        # RGB_config.TriggerMode.value = 'On'
-        # RGB_config.TriggerSource.value = 'Line0'
-        # RGB_config.TriggerActivation.value = 'LevelHigh'
-        # RGB_config.LineDebounceTime.value = 0.0
-        # RGB_config.ExposureAuto.value = 'Continuous'
-        # RGB_config.GainAuto.value = 'Continuous'
-        # RGB_config.TargetBrightness.value = 128
-        # RGB_config.AGCRange.value = 208
+        if sep_mode is True:
+            RGB_config.TriggerMode.value = 'Off'
+            RGB_config.AcquisitionFrameRate.value = FPS
+        else:
+            RGB_config.TriggerMode.value = 'On'
+            RGB_config.TriggerSource.value = 'Line0'
+            RGB_config.TriggerActivation.value = 'LevelHigh'
+            RGB_config.LineDebounceTime.value = 0
+        RGB_config.ExposureAuto.value = 'Continuous'
+        RGB_config.GainAuto.value = 'Continuous'
+        RGB_config.TargetBrightness.value = 128
+        RGB_config.AGCRange.value = 208
         RGB_cam.start()
 
         if debug is not True:
             make_dirs(folder)
             RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
             FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
-            RGBFIR_video = cv2.VideoWriter(
-                RGB_FIR_fp, fourcc, FPS, (FIR_shape[0]*2, FIR_shape[1]))
 
     elif 'STC_SCS312POE' in models:  # RGB only
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
         RGB_config = RGB_cam.remote_device.node_map
+        RGB_config.AcquisitionFrameRate.value = FPS
         RGB_config.TriggerMode.value = 'Off'
         RGB_config.ExposureAuto.value = 'Continuous'
         RGB_config.GainAuto.value = 'Continuous'
@@ -146,49 +170,54 @@ def main():
 
     print('start')
     try:
+        print()
+        t: float = 1.0
         if 'STC_SCS312POE' in models and 'FLIR AX5' in models:  # RGB-FIR
             for frame in count():
-                # if FIR_cam.statistics.fps == 0:
-                #     RGB_config.AcquisitionFrameRate.value = 29.97
-                # else:
-                #     RGB_config.AcquisitionFrameRate.value = FIR_cam.statistics.fps
-                print(f'processing... {frame}')
-                print(RGB_cam.statistics.fps)
-                print(str(FIR_cam.statistics.fps))
-                print('\033[3A', end='')
+                tic()
+                if frame % 5 == 0:
+                    print('\033[1A', end='')
+                    print(f'processing... {frame} / {1 / t:.3f} FPS')
                 FIR = get_camdata(FIR_cam, 'FIR')
                 RGB = get_camdata(RGB_cam, 'RGB')
                 if debug is not True:
                     RGB_video.write(RGB)
                     FIR_video.write(FIR)
-                concat = np.concatenate(
-                    (cv2.resize(RGB, (640, 512)), FIR), axis=1)
+                RGB = cv2.resize(RGB, (640, 512))
+                if calib is True:
+                    RGB = detect(RGB, False)
+                    FIR = detect(FIR, True)
+                concat = np.concatenate((RGB, FIR), axis=1)
                 cv2.namedWindow('RGB-FIR')
                 cv2.imshow('RGB-FIR', concat)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
+                t = toc()
 
         elif 'STC_SCS312POE' in models:  # RGBのみ
             for frame in count():
-                print(f'processing... {frame}')
-                print(str(RGB_cam.statistics.fps))
-                print('\033[2A', end='')
+                tic()
+                if frame % 5 == 0:
+                    print('\033[1A', end='')
+                    print(f'processing... {frame} / {1 / t:.3f} FPS')
                 RGB = get_camdata(RGB_cam, 'RGB')
                 if debug is not True:
                     RGB_video.write(RGB)
                 RGB = cv2.resize(RGB, dsize=None, fx=1/3, fy=1/3)
                 if calib is True:
-                    RGB = detect(RGB)
+                    RGB = detect(RGB, False)
                 cv2.namedWindow('RGB')
                 cv2.imshow('RGB', RGB)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
+                t = toc()
 
         elif 'FLIR AX5' in models:  # FIRのみ
             for frame in count():
-                print(f'processing... {frame}')
-                print(str(FIR_cam.statistics.fps))
-                print('\033[2A', end='')
+                tic()
+                if frame % 5 == 0:
+                    print('\033[1A', end='')
+                    print(f'processing... {frame} / {1 / t:.3f} FPS')
                 FIR = get_camdata(FIR_cam, 'FIR')
                 if debug is not True:
                     FIR_video.write(FIR)
@@ -198,6 +227,7 @@ def main():
                 cv2.imshow('FIR', FIR)
                 if cv2.waitKey(10) == ord('q'):  # 終了
                     break
+                t = toc()
 
     except Exception as e:  # 例外処理
         print(f'Error: {e}')
@@ -209,7 +239,6 @@ def main():
             FIR_cam.stop()
             FIR_cam.destroy()
             if debug is not True:
-                RGBFIR_video.release()
                 RGB_video.release()
                 FIR_video.release()
         elif 'STC_SCS312POE' in models:  # RGBカメラのみ
@@ -227,7 +256,7 @@ def main():
         h.reset()
 
 
-def detect(img, bitwise=False):
+def detect(img, bitwise):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     if bitwise is True:
         gray = cv2.bitwise_not(gray)
@@ -235,7 +264,7 @@ def detect(img, bitwise=False):
     if ret is True:
         return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
     else:
-        return gray
+        return img
 
 
 if __name__ == '__main__':
