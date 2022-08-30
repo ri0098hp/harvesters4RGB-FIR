@@ -1,7 +1,8 @@
 Harvesters for RGB-FIR Camera Capture
 ====================================
-<!-- # DEMO
-準備中 -->
+
+# Demo
+準備中
 
 # Features
 RGB-FIRカメラの録画を行う.
@@ -17,15 +18,19 @@ RGB-FIRカメラの録画を行う.
 
 # Installation
 ## 1. GenTL Producerを入れる
-既に導入済みなら飛ばしても良い. 今回はMATRIX VISIONの "mvIMPACT_Acquire" をつかう. [ここ](http://static.matrix-vision.com/mvIMPACT_Acquire/)から最新版を選択し, OSにあった mvGenTL_Acquire をインストールする. 動作確認済みなのは2.46.2で `mvGenTL_Acquire-x86_64-2.46.2.exe` .
+既に導入済みなら飛ばしても良い.  
+今回はMATRIX VISIONの "mvIMPACT_Acquire" をつかう. [ここ](http://static.matrix-vision.com/mvIMPACT_Acquire/)から最新版を選択し, OSにあった mvGenTL_Acquire をインストールする.  
+動作確認済みなのは2.46.2で `mvGenTL_Acquire-x86_64-2.46.2.exe` .
 
 ## 2. Python環境を構築
-仮想環境にてインストール.  Pythonのバージョンは3.7推奨. PipenvやPoetry推奨. もしこれらで導入する場合は仮想環境に入った状態で以降を実行すること.
-
+仮想環境にてインストール.  Pythonのバージョンは3.7推奨. PipenvやPoetry推奨. もしこれらで導入する場合は仮想環境に入った状態で以降を実行すること.  
+仮想環境を用いない場合はpip実行可能な環境にて次のコマンド.
+```bash
+pip install -p
+```
 
 ## 3. セットアップツールの実行
 必要ライブラリを導入したら `setup.py` を実行. 詳細は以下の公式ドキュメント [Tutorials](#tutorials) 参照.
-
 ```bash
 python setup.py install
 ```
@@ -35,22 +40,18 @@ Pythonで `RGB-FIRCamera.py` を実行
 ```bash
 python RGB-FIRCamera.py
 ```
-実行後, 認識しているカメラのモデル名一覧が出るので確認. その後入力待機状態になるので0, RGB, FIRの値を入力する.
-+ 0: RGB-FIRカメラ
-+ RGB: RGBカメラのみ
-+ FIR: FIRカメラのみ
+実行後, 認識しているカメラのモデル名一覧が出るので確認. ウィンドウが表示される (されない場合はタスクバーを確認してアクティブに) のでそのまま撮影.  
+終了する場合はカメラウィンドウをアクティブにした状態で「q」を入力. `./out/{日付}` にファイルが保存される.
 
-ウィンドウが表示される (されない場合はタスクバーを確認してアクティブに) のでそのまま撮影.
-
-終了する場合はカメラウィンドウをアクティブにした状態で「q」を入力. `./out/{日付}` にファイルが保存される. 
-
-<p class="warn">**注意** GenICamのライブラリファイルであるctiが見つからない場合は環境変数の GENICAM_GENTL64_PATH を参照. </p>
+| :exclamation:  注意                                                                             |
+| ----------------------------------------------------------------------------------------------- |
+| GenICamのライブラリファイルであるctiが見つからない場合は環境変数の GENICAM_GENTL64_PATH を参照. |
 
 # 補足
 動画から連番画像はffmpegを叩けばよい. 以下のコマンドをPowerShellで実行する. 
 ```ps
-ffmpeg -i ./RGB.mp4 -q:v 1 -r 30 ./RGB_raw/%04d.jpg
-ffmpeg -i ./FIR.mp4 -q:v 1 -r 30 ./FIR/%04d.jpg
+ffmpeg -i ./RGB.mp4 -q:v 1 -r 29.97 ./RGB_raw/%04d.jpg
+ffmpeg -i ./FIR.mp4 -q:v 1 -r 29.97 ./FIR/%04d.jpg
 ```
 
 ユーザパラメータ
@@ -61,13 +62,16 @@ ffmpeg -i ./FIR.mp4 -q:v 1 -r 30 ./FIR/%04d.jpg
 | FPS         | 取得FPS値                                               |
 | save_folder | 保存先のルートフォルダ                                  |
 | cti         | ctiファイルの名前 (デフォルトは `mvGenTLProducer.cti` ) |
+| debug       | 実行時にファイル・ディレクトリ生成を行わないかどうか    |
+| calib       | キャリブレーションマーカー検出の行うか                  |
+| sep_mode    | 同期信号を取るかどうか                                  |
 
 
 カメラ概要
 | Camera | Feature  | Num                |
 | ------ | -------- | ------------------ |
 | RGB    |          |                    |
-|        | 焦点距離 | 0.1 17F 6mm                 |
+|        | 焦点距離 | 0.1 17F 6mm        |
 |        | 撮像素子 | H:7.06mm, W:5.29mm |
 | FIR    |          |                    |
 |        | 焦点距離 | 13 mm              |
