@@ -34,10 +34,6 @@ log.set_verbosity(log.DEBUG)
 log.info('Entered setup.py')
 log.info('$PATH=%s' % os.environ['PATH'])
 
-
-# with open('README.rst', 'r',encoding='utf-8_sig') as fh:
-#     __doc__ = fh.read()
-
 description = 'Image Acquisition Library for GenICam-based Machine Vision System'
 
 # Determine the base directory:
@@ -69,7 +65,7 @@ setuptools.setup(
     download_url='https://pypi.org/project/harvesters/',
     # A list of required Python modules:
     install_requires=[
-        'genicam<1.2',
+        'genicam>=1.2',
         'numpy'
     ],
     #

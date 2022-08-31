@@ -10,5 +10,6 @@
 !*.in
 !*.ini
 !*.bat
+!*.exe
 !/src/
 !/docs/

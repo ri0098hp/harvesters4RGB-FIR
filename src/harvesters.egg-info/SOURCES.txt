@@ -29,6 +29,7 @@ src/harvesters/test/helper.py
 src/harvesters/test/test_319.py
 src/harvesters/test/test_321.py
 src/harvesters/test/test_345.py
+src/harvesters/test/test_351.py
 src/harvesters/test/test_acq_frame_rate.py
 src/harvesters/test/test_deprecated_items.py
 src/harvesters/test/test_harvester_core.py
