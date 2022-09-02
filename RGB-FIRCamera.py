@@ -1,6 +1,6 @@
 from harvesters.core import Harvester
 from itertools import count
-from typing import cast
+from typing import cast, Tuple
 import numpy as np
 import time
 import cv2
@@ -13,12 +13,6 @@ FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
 save_folder: str = r'./out'  # root folder for saving
 cti: str = 'mvGenTLProducer.cti'  # GenTL config file name
-
-
-# default: False, False, True
-debug: bool = False  # disable making folder and files
-calib: bool = False  # enable calibrate
-sep_mode: bool = True  # set controling separate without sync
 
 
 # --------------------------------------------------
@@ -44,6 +38,35 @@ def rel2abs_path(filename: str, attr: str) -> str:
     else:
         raise BaseException(print(f'E: 相対パスの引数ミス [{attr}]'))
     return os.path.join(datadir, filename)
+
+
+# --------------------------------------------------
+# reading parameters from setting.ini
+# --------------------------------------------------
+def get_config() -> Tuple[bool, bool, bool]:
+    import configparser
+
+    config_ini = configparser.ConfigParser()
+    config_ini_path = rel2abs_path('setting.ini', 'exe')
+    # iniファイルが存在するかチェック
+    if os.path.exists(config_ini_path):
+        # iniファイルが存在する場合、ファイルを読み込む
+        with open(config_ini_path, encoding='utf-8') as fp:
+            config_ini.read_file(fp)
+            # iniの値取得
+            read_default = config_ini['DEFAULT']
+            debug = bool(int(read_default.get('debug')))
+            calib = bool(int(read_default.get('calib')))
+            sep_mode = bool(int(read_default.get('sep_mode')))
+            print('###----------------------------------------###')
+            print(f'デバッグ: {debug}')
+            print(f'キャリブレーション: {calib}')
+            print(f'独立モード: {sep_mode}')
+            print('###----------------------------------------###')
+            return debug, calib, sep_mode
+    else:
+        print('E: setting.iniが見つかりません\n')
+        return False, False, True
 
 
 # --------------------------------------------------
@@ -88,9 +111,9 @@ def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
 
 
 # --------------------------------------------------
-# detect circle grids and display markers
+# setup RGBcam by GenICam parameters
 # --------------------------------------------------
-def setup_RGBcam(RGB_config) -> None:
+def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
     if sep_mode is True:
         RGB_config.TriggerMode.value = 'Off'
         RGB_config.AcquisitionFrameRate.value = FPS
@@ -106,9 +129,9 @@ def setup_RGBcam(RGB_config) -> None:
 
 
 # --------------------------------------------------
-# detect circle grids and display markers
+# setup FIRcam by GenICam parameters
 # --------------------------------------------------
-def setup_FIRcam(FIR_config) -> None:
+def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
     if sep_mode is True:
         FIR_config.SyncMode.value = 'Disabled'
     else:
@@ -122,7 +145,7 @@ def main():
     h.add_file(os.path.join(cast(str, os.getenv('GENICAM_GENTL64_PATH')), cti))
     h.update()
     models = [d.property_dict.get('model') for d in h.device_info_list]
-    print(f'Connected Devces: {models}')
+    print(f'認識したデバイス: {models}')
 
     # Setup folders and files
     folder = os.path.join(save_folder, get_datetime())
@@ -131,13 +154,14 @@ def main():
     FIR_fp = os.path.join(folder, 'FIR.mp4')
 
     # Select a mode
+    debug, calib, sep_mode = get_config()
     # RGB-FIR mode
     if 'STC_SCS312POE' in models and 'FLIR AX5' in models:
         FIR_cam = h.create({'model': 'FLIR AX5'})
-        setup_FIRcam(FIR_cam.remote_device.node_map)
+        setup_FIRcam(FIR_cam.remote_device.node_map, sep_mode)
         FIR_cam.start()
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
-        setup_RGBcam(RGB_cam.remote_device.node_map)
+        setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
         if debug is not True:
             make_dirs(folder)
@@ -146,7 +170,7 @@ def main():
     # RGB only
     elif 'STC_SCS312POE' in models:
         RGB_cam = h.create({'model': 'STC_SCS312POE'})
-        setup_RGBcam(RGB_cam.remote_device.node_map)
+        setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
         if debug is not True:
             make_dirs(folder)
@@ -154,7 +178,7 @@ def main():
     # FIR only
     elif 'FLIR AX5' in models:
         FIR_cam = h.create({'model': 'FLIR AX5'})
-        setup_FIRcam(FIR_cam.remote_device.node_map)
+        setup_FIRcam(FIR_cam.remote_device.node_map, sep_mode)
         FIR_cam.start()
         if debug is not True:
             make_dirs(folder)
@@ -260,6 +284,9 @@ def main():
 
 
 if __name__ == '__main__':
+    # 文字コード化けを起こすのを回避
+    os.system('chcp 65001')
+    os.system('cls')
     try:
         main()
     except Exception as e:

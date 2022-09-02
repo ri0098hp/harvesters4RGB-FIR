@@ -9,7 +9,7 @@ RGB-FIRカメラの録画を行う.
 
 # Requirement
 [Pipfile](Pipfile) 参照
-+ Python 3.7
++ Python 3.7.9
   + harvesters
   + ipython
   + opencv-python
