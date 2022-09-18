@@ -4,6 +4,13 @@ Harvesters for RGB-FIR Camera Capture
 # Demo
 準備中
 
+# Todo List
+- [x] カメラのキャプチャ
+- [ ] バイナリアプリケーション化
+- [ ] 動画 to 画像ツール
+- [ ] クロッピングツール
+
+
 # Features
 RGB-FIRカメラの録画を行う.
 
@@ -52,6 +59,11 @@ python RGB-FIRCamera.py
 ```ps
 ffmpeg -i ./RGB.mp4 -q:v 1 -r 29.97 ./RGB_raw/%04d.jpg
 ffmpeg -i ./FIR.mp4 -q:v 1 -r 29.97 ./FIR/%04d.jpg
+```
+
+exeファイル化するには
+```ps
+nuitka --follow-imports --onefile --enable-plugin=numpy .\RGB-FIRCamera.py
 ```
 
 ユーザパラメータ

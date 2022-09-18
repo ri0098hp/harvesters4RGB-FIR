@@ -74,9 +74,9 @@ def get_config() -> Tuple[bool, bool, bool]:
 # --------------------------------------------------
 def make_dirs(folder: str) -> None:
     os.makedirs(os.path.join(folder, 'RGB_raw'), exist_ok=True)
+    os.makedirs(os.path.join(folder, 'RGB_crop'), exist_ok=True)
     os.makedirs(os.path.join(folder, 'RGB'), exist_ok=True)
     os.makedirs(os.path.join(folder, 'FIR'), exist_ok=True)
-    os.makedirs(os.path.join(folder, 'concat'), exist_ok=True)
 
 
 # --------------------------------------------------
@@ -188,10 +188,11 @@ def main():
         print('E: Cannot find any devices. Please check your connection and restart.')
         h.reset()
         return
-
+    # initialize RGB, FIR val
     RGB = np.zeros((RGB_shape[1], RGB_shape[0], 3))
     FIR = np.zeros((FIR_shape[1], FIR_shape[0], 3))
 
+    # capture start
     print('start')
     try:
         print()
@@ -253,11 +254,9 @@ def main():
                 dt = time.time() - start_time
                 if cv2.waitKey(10) == ord('q'):
                     break
-
     # exception handling
     except Exception as e:
         print(f'Error: {e}')
-
     # release all handlers
     finally:
         if 'STC_SCS312POE' in models and 'FLIR AX5' in models:

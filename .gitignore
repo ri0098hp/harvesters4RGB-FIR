@@ -1,7 +1,6 @@
 *
 !*.gitignore
 !*.py
-!*.ipynb
 !Pipfile*
 !*.cfg
 !*.yaml
