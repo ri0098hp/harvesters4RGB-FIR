@@ -7,8 +7,10 @@ Harvesters for RGB-FIR Camera Capture
 # Todo List
 - [x] カメラのキャプチャ
 - [ ] バイナリアプリケーション化
-- [ ] 動画 to 画像ツール
-- [ ] クロッピングツール
+- [x] 便利動画ツール
+  - [x] 動画 to 画像ツール
+  - [x] クロッピングツール
+  - [x] キャリブレーションツール
 
 
 # Features
@@ -64,6 +66,9 @@ ffmpeg -i ./FIR.mp4 -q:v 1 -r 29.97 ./FIR/%04d.jpg
 exeファイル化するには
 ```ps
 nuitka --follow-imports --onefile --enable-plugin=numpy .\RGB-FIRCamera.py
+```
+```ps
+nuitka --follow-imports --onefile --enable-plugin=numpy .\RGB-FIRTools.py
 ```
 
 ユーザパラメータ
