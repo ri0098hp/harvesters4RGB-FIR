@@ -70,16 +70,6 @@ def get_config() -> Tuple[bool, bool, bool]:
 
 
 # --------------------------------------------------
-# creating save-directory
-# --------------------------------------------------
-def make_dirs(folder: str) -> None:
-    os.makedirs(os.path.join(folder, 'RGB_raw'), exist_ok=True)
-    os.makedirs(os.path.join(folder, 'RGB_crop'), exist_ok=True)
-    os.makedirs(os.path.join(folder, 'RGB'), exist_ok=True)
-    os.makedirs(os.path.join(folder, 'FIR'), exist_ok=True)
-
-
-# --------------------------------------------------
 # obtain and covert GigE binary to cv2 image array
 # --------------------------------------------------
 def get_camdata(cam, flag: str) -> np.ndarray:
@@ -164,7 +154,7 @@ def main():
         setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
         if debug is not True:
-            make_dirs(folder)
+            os.makedirs(folder, exist_ok=True)
             RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
             FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
     # RGB only
@@ -173,7 +163,7 @@ def main():
         setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
         if debug is not True:
-            make_dirs(folder)
+            os.makedirs(folder, exist_ok=True)
             RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
     # FIR only
     elif 'FLIR AX5' in models:
@@ -181,7 +171,7 @@ def main():
         setup_FIRcam(FIR_cam.remote_device.node_map, sep_mode)
         FIR_cam.start()
         if debug is not True:
-            make_dirs(folder)
+            os.makedirs(folder, exist_ok=True)
             FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
     # exception handling
     else:

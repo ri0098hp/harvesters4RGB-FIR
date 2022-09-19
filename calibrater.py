@@ -3,28 +3,7 @@ import cv2
 import glob
 import numpy as np
 from tqdm import tqdm
-
-
-def main() -> None:
-    root_folder: str = r'out'  # root folder for saving
-    save_folder = os.path.join(root_folder, input(
-        'M: 日時フォルダ名を入力 (例: 20180903_1113): '))
-    while not os.path.exists(save_folder):
-        print('E: 存在しないフォルダ名です')
-        save_folder = os.path.join(root_folder, input('M: 再度日時フォルダ名を入力: '))
-
-    child_dirs = ['RGB_raw', 'RGB', 'FIR', 'concat']
-    os.makedirs(os.path.join(child_dirs[2], 'RGB'), exist_ok=True)
-    save_folders = [os.path.join(save_folder, name) for name in child_dirs]
-    RGBraw_fps = glob.glob(os.path.join(save_folders[0], '*.jpg'))
-    print('start converting')
-    for RGBraw_fp in tqdm(RGBraw_fps, unit=' file'):
-        RGB_fp = RGBraw_fp.replace('RGB_raw', 'RGB')
-        if os.path.exists(RGB_fp):
-            print('E: file is existing at {RGB_fp}')
-            break
-        cv2.imwrite(RGB_fp, calib(cv2.imread(RGBraw_fp)))
-    print('fin')
+from typing import List
 
 
 # --------------------------------------------------
@@ -39,6 +18,19 @@ def rel2abs_path(filename: str, attr: str) -> str:
     else:
         raise BaseException(print(f'E: 相対パスの引数ミス [{attr}]'))
     return os.path.join(datadir, filename)
+
+
+# --------------------------------------------------
+# choose saved folder of images named by date
+# --------------------------------------------------
+def ChooseFolder() -> str:
+    root_folder: str = r'out'  # root folder for saving
+    msg: str = 'M: 日時フォルダ名を入力 (例: 20180903_1113): '
+    save_folder: str = os.path.join(root_folder, input(msg))
+    while not os.path.exists(save_folder):
+        print('E: 存在しないフォルダ名です')
+        save_folder = os.path.join(root_folder, input(msg))
+    return save_folder
 
 
 # --------------------------------------------------
@@ -61,5 +53,24 @@ def calib(img) -> np.ndarray:
     return dst
 
 
+def main() -> None:
+    save_folder = ChooseFolder()
+    child_dirs: List[str] = ['RGB_raw', 'RGB_crop', 'RGB', 'FIR']
+    os.makedirs(os.path.join(save_folder, child_dirs[2]), exist_ok=True)
+    save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+    RGBraw_fps = glob.glob(os.path.join(save_folders[0], '*.jpg'))
+    print('start converting')
+    for RGBraw_fp in tqdm(RGBraw_fps, unit=' file'):
+        RGB_fp = RGBraw_fp.replace(child_dirs[0], child_dirs[1])
+        if os.path.exists(RGB_fp):
+            print(f'\nE: file is existing at "{RGB_fp}"')
+            break
+        cv2.imwrite(RGB_fp, calib(cv2.imread(RGBraw_fp)))
+    print('fin')
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
