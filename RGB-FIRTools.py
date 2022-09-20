@@ -30,14 +30,37 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # --------------------------------------------------
 # choose saved folder of images named by date
 # --------------------------------------------------
-def ChooseFolder() -> str:
-    root_folder: str = rel2abs_path(r'out', 'exe')  # root folder for saving
+def ChooseFolder(root_folder: str) -> str:
+    print(os.listdir(root_folder))
     msg: str = 'M: 日時フォルダ名を入力 (例: 20180903_1113): '
     save_folder: str = os.path.join(root_folder, input(msg))
     while not os.path.exists(save_folder):
         print('E: 存在しないフォルダ名です')
         save_folder = os.path.join(root_folder, input(msg))
     return save_folder
+
+
+# --------------------------------------------------
+# reading parameters from setting.ini
+# --------------------------------------------------
+def get_config() -> str:
+    import configparser
+
+    config_ini = configparser.ConfigParser()
+    config_ini_path = rel2abs_path('setting.ini', 'exe')
+    # iniファイルが存在するかチェック
+    if os.path.exists(config_ini_path):
+        # iniファイルが存在する場合、ファイルを読み込む
+        with open(config_ini_path, encoding='utf-8') as fp:
+            config_ini.read_file(fp)
+            # iniの値取得
+            read_default = config_ini['DEFAULT']
+            save_folder = rel2abs_path(read_default.get('save_folder'), 'exe')
+            print(f'保存先: {save_folder}')
+            return save_folder
+    else:
+        print('E: setting.iniが見つかりません\n')
+        return rel2abs_path('out', 'exe')
 
 
 # --------------------------------------------------
@@ -163,7 +186,8 @@ def merger(save_folder) -> None:
 
 
 def main() -> None:
-    parent_dir = ChooseFolder()
+    root_folder = get_config()
+    parent_dir = ChooseFolder(root_folder)
     mp4tojpg_converter(parent_dir)
     cropper(parent_dir)
     calibrater(parent_dir)

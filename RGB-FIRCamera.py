@@ -11,7 +11,7 @@ import os
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
-save_folder: str = r'./out'  # root folder for saving
+# save_folder: str = r'./out'  # root folder for saving
 cti: str = 'mvGenTLProducer.cti'  # GenTL config file name
 
 
@@ -43,7 +43,7 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # --------------------------------------------------
 # reading parameters from setting.ini
 # --------------------------------------------------
-def get_config() -> Tuple[bool, bool, bool]:
+def get_config() -> Tuple[bool, bool, bool, str]:
     import configparser
 
     config_ini = configparser.ConfigParser()
@@ -58,15 +58,17 @@ def get_config() -> Tuple[bool, bool, bool]:
             debug = bool(int(read_default.get('debug')))
             calib = bool(int(read_default.get('calib')))
             sep_mode = bool(int(read_default.get('sep_mode')))
+            save_folder = rel2abs_path(read_default.get('save_folder'), 'exe')
             print('###----------------------------------------###')
             print(f'デバッグ: {debug}')
             print(f'キャリブレーション: {calib}')
             print(f'独立モード: {sep_mode}')
+            print(f'保存先: {save_folder}')
             print('###----------------------------------------###')
-            return debug, calib, sep_mode
+            return debug, calib, sep_mode, save_folder
     else:
         print('E: setting.iniが見つかりません\n')
-        return False, False, True
+        return False, False, True, rel2abs_path('out', 'exe')
 
 
 # --------------------------------------------------
@@ -130,6 +132,9 @@ def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
 
 
 def main():
+    # Select a mode
+    debug, calib, sep_mode, save_folder = get_config()
+
     # Connect to Camera
     h = Harvester()
     h.add_file(os.path.join(cast(str, os.getenv('GENICAM_GENTL64_PATH')), cti))
@@ -143,8 +148,6 @@ def main():
     RGB_fp = os.path.join(folder, 'RGB.mp4')
     FIR_fp = os.path.join(folder, 'FIR.mp4')
 
-    # Select a mode
-    debug, calib, sep_mode = get_config()
     # RGB-FIR mode
     if 'STC_SCS312POE' in models and 'FLIR AX5' in models:
         FIR_cam = h.create({'model': 'FLIR AX5'})
