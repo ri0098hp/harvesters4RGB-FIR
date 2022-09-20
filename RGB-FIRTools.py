@@ -31,8 +31,7 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # choose saved folder of images named by date
 # --------------------------------------------------
 def ChooseFolder(root_folder: str) -> str:
-    print(os.listdir(root_folder))
-    msg: str = 'M: 日時フォルダ名を入力 (例: 20180903_1113): '
+    msg: str = f'M: 日時フォルダ名を入力: {os.listdir(root_folder)}\n>> '
     save_folder: str = os.path.join(root_folder, input(msg))
     while not os.path.exists(save_folder):
         print('E: 存在しないフォルダ名です')
@@ -43,7 +42,7 @@ def ChooseFolder(root_folder: str) -> str:
 # --------------------------------------------------
 # reading parameters from setting.ini
 # --------------------------------------------------
-def get_config() -> str:
+def get_config() -> Tuple[str, bool, bool, bool, bool]:
     import configparser
 
     config_ini = configparser.ConfigParser()
@@ -56,11 +55,21 @@ def get_config() -> str:
             # iniの値取得
             read_default = config_ini['DEFAULT']
             save_folder = rel2abs_path(read_default.get('save_folder'), 'exe')
+            mp4tojpg = bool(read_default.get('mp4tojpg'))
+            crop = bool(read_default.get('crop'))
+            calibrate = bool(read_default.get('calibrate'))
+            merge = bool(read_default.get('merge'))
+            print('###----------------------------------------###')
             print(f'保存先: {save_folder}')
-            return save_folder
+            print(f'動画像変換: {mp4tojpg}')
+            print(f'クロップ: {crop}')
+            print(f'キャリブレーション: {calibrate}')
+            print(f'RGB-FIR結合: {merge}')
+            print('###----------------------------------------###')
+            return save_folder, mp4tojpg, crop, calibrate, merge
     else:
         print('E: setting.iniが見つかりません\n')
-        return rel2abs_path('out', 'exe')
+        return rel2abs_path('out', 'exe'), True, True, True, True
 
 
 # --------------------------------------------------
@@ -186,12 +195,16 @@ def merger(save_folder) -> None:
 
 
 def main() -> None:
-    root_folder = get_config()
+    root_folder, mp4tojpg, crop, calibrate, merge = get_config()
     parent_dir = ChooseFolder(root_folder)
-    mp4tojpg_converter(parent_dir)
-    cropper(parent_dir)
-    calibrater(parent_dir)
-    merger(parent_dir)
+    if mp4tojpg:
+        mp4tojpg_converter(parent_dir)
+    if crop:
+        cropper(parent_dir)
+    if calibrate:
+        calibrater(parent_dir)
+    if merge:
+        merger(parent_dir)
 
 
 if __name__ == "__main__":
