@@ -83,25 +83,54 @@ def mp4tojpg_converter(save_folder) -> None:
 
     RGBraw_fp = os.path.join(save_folder, "RGB_raw.mp4")
     FIR_fp = os.path.join(save_folder, "FIR.mp4")
-    RGBimg_fps = os.path.join(save_folders[0], "%04d.jpg")
-    FIRimg_fps = os.path.join(save_folders[3], "%04d.jpg")
+    RGBimg_fps = os.path.join(save_folders[0], "%d.jpg")
+    FIRimg_fps = os.path.join(save_folders[3], "%d.jpg")
+    flag: str = "RGBFIR"
     if os.path.exists(RGBimg_fps.replace("%04d", "0001")):
         print(f"E: 既に{child_dirs[0]}フォルダにファイルが存在しています")
-        return
+        flag.replace("RGB", "")
     elif os.path.exists(FIRimg_fps.replace("%04d", "0001")):
         print(f"E: 既に{child_dirs[3]}フォルダにファイルが存在しています")
-        return
-    elif not os.path.exists(RGBraw_fp) and not os.path.exists(FIR_fp):
-        print(f'\nE: file is not existing at "{RGBraw_fp}" or "{FIR_fp}"')
+        flag.replace("FIR", "")
+    elif os.path.exists(RGBraw_fp) and os.path.exists(FIR_fp):
+        print(f'\nE: file is not existing at "{RGBraw_fp}" and "{FIR_fp}"')
         return
 
     try:
-        print("M: start RGB.mp4 converting...")
-        cmd = ["ffmpeg", "-loglevel", "error", "-i", RGBraw_fp, "-q:v", "1", "-r", "29.97", RGBimg_fps]
-        subprocess.run(args=cmd, stdout=subprocess.DEVNULL)
-        print("M: start FIR.mp4 converting...")
-        cmd = ["ffmpeg", "-loglevel", "error", "-i", FIR_fp, "-q:v", "1", "-r", "29.97", FIRimg_fps]
-        subprocess.run(cmd, stdout=subprocess.DEVNULL)
+        if "RGB" in flag:
+            print("M: start RGB_raw.mp4 converting...")
+            cmd = [
+                "ffmpeg",
+                "-loglevel",
+                "error",
+                "-i",
+                RGBraw_fp,
+                "-q:v",
+                "1",
+                "-r",
+                "29.97",
+                "-start_number",
+                "0",
+                RGBimg_fps,
+            ]
+            subprocess.run(cmd)
+        if "FIR" in flag:
+            print("M: start FIR.mp4 converting...")
+            cmd = [
+                "ffmpeg",
+                "-loglevel",
+                "error",
+                "-i",
+                FIR_fp,
+                "-q:v",
+                "1",
+                "-r",
+                "29.97",
+                "-start_number",
+                "0",
+                FIRimg_fps,
+            ]
+            subprocess.run(cmd)
     except FileNotFoundError:
         print("E: ffmpegがインストールされていないか、PATHが通っていません")
     except Exception as e:

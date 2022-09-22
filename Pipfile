@@ -10,6 +10,7 @@ nuitka = "*"
 zstandard = "*"
 tdqm = "*"
 ordered-set = "*"
+isort = "*"
 
 [dev-packages]
 flake8 = "*"

@@ -2,7 +2,6 @@ from harvesters.core import Harvester
 from itertools import count
 from typing import cast, Tuple
 import numpy as np
-import time
 import cv2
 import os
 
@@ -11,7 +10,8 @@ import os
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
-# save_folder: str = r'./out'  # root folder for saving
+# save_folder: str = r'./out'  #
+# root folder for saving
 cti: str = "mvGenTLProducer.cti"  # GenTL config file name
 
 
@@ -74,43 +74,12 @@ def get_config() -> Tuple[bool, bool, bool, str]:
 
 
 # --------------------------------------------------
-# obtain and covert GigE binary to cv2 image array
-# --------------------------------------------------
-def get_camdata(cam, flag: str) -> np.ndarray:
-    # set timeout for the shutter of FIR cam
-    with cam.fetch(timeout=3) as buffer:
-        component = buffer.payload.components[0]
-        width = component.width
-        height = component.height
-        data = component.data.reshape(height, width)
-        if flag == "RGB":
-            img = cv2.cvtColor(data, cv2.COLOR_BayerBG2RGB)
-        elif flag == "FIR":
-            img = cv2.cvtColor(data, cv2.COLOR_GRAY2RGB)
-        return img
-
-
-# --------------------------------------------------
-# detect circle grids and display markers
-# --------------------------------------------------
-def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    if bitwise is True:
-        gray = cv2.bitwise_not(gray)
-    ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
-    if ret is True:
-        return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
-    else:
-        return img
-
-
-# --------------------------------------------------
 # setup RGBcam by GenICam parameters
 # --------------------------------------------------
 def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
     if sep_mode is True:
         RGB_config.TriggerMode.value = "Off"
-        RGB_config.AcquisitionFrameRate.value = FPS
+        RGB_config.AcquisitionFrameRate.value = FPS - 0.00375
     else:
         RGB_config.TriggerMode.value = "On"
         RGB_config.TriggerSource.value = "Line0"
@@ -133,6 +102,38 @@ def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
     FIR_config.AcquisitionMode.value = "Continuous"
 
 
+# --------------------------------------------------
+# obtain and covert GigE binary to cv2 image array
+# --------------------------------------------------
+def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
+    # set timeout for the shutter of FIR cam
+    with cam.fetch(timeout=3) as buffer:
+        framerate = cam.statistics.fps
+        component = buffer.payload.components[0]
+        width = component.width
+        height = component.height
+        data = component.data.reshape(height, width)
+        if flag == "RGB":
+            img = cv2.cvtColor(data, cv2.COLOR_BayerBG2RGB)
+        elif flag == "FIR":
+            img = cv2.cvtColor(data, cv2.COLOR_GRAY2RGB)
+        return img, framerate
+
+
+# --------------------------------------------------
+# detect circle grids and display markers
+# --------------------------------------------------
+def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if bitwise is True:
+        gray = cv2.bitwise_not(gray)
+    ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
+    if ret is True:
+        return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
+    else:
+        return img
+
+
 def main():
     # Select a mode
     debug, calib, sep_mode, save_folder = get_config()
@@ -147,7 +148,7 @@ def main():
     # Setup folders and files
     folder = os.path.join(save_folder, get_datetime())
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    RGB_fp = os.path.join(folder, "RGB.mp4")
+    RGB_fp = os.path.join(folder, "RGB_raw.mp4")
     FIR_fp = os.path.join(folder, "FIR.mp4")
 
     # RGB-FIR mode
@@ -191,16 +192,14 @@ def main():
     print("start")
     try:
         print()
-        dt: float = 1.0  # processing time
         # RGB-FIR mode
         if "STC_SCS312POE" in models and "FLIR AX5" in models:
             for frame in count():
-                start_time = time.time()
+                FIR, FIR_fps = get_camdata(FIR_cam, "FIR")
+                RGB, RGB_fps = get_camdata(RGB_cam, "RGB")
                 if frame % 5 == 0:
                     print("\033[1A", end="")
-                    print(f"processing... at {frame} frame / {1 / dt:.3f} FPS")
-                FIR = get_camdata(FIR_cam, "FIR")
-                RGB = get_camdata(RGB_cam, "RGB")
+                    print(f"processing... at {frame} frame / {RGB_fps:.3f} x {FIR_fps:.3f} FPS")
                 if debug is not True:
                     RGB_video.write(RGB)
                     FIR_video.write(FIR)
@@ -211,17 +210,15 @@ def main():
                 concat = np.concatenate((RGB, FIR), axis=1)
                 cv2.namedWindow("RGB-FIR")
                 cv2.imshow("RGB-FIR", concat)
-                dt = time.time() - start_time
                 if cv2.waitKey(10) == ord("q"):
                     break
         # RGB only
         elif "STC_SCS312POE" in models:
             for frame in count():
-                start_time = time.time()
+                RGB, RGB_fps = get_camdata(RGB_cam, "RGB")
                 if frame % 5 == 0:
                     print("\033[1A", end="")
-                    print(f"processing... at {frame} frame / {1 / dt:.3f} FPS")
-                RGB = get_camdata(RGB_cam, "RGB")
+                    print(f"processing... at {frame} frame / {RGB_fps:.3f} FPS")
                 if debug is not True:
                     RGB_video.write(RGB)
                 RGB = cv2.resize(RGB, dsize=None, fx=1 / 3, fy=1 / 3)
@@ -229,24 +226,21 @@ def main():
                     RGB = detect(RGB, False)
                 cv2.namedWindow("RGB")
                 cv2.imshow("RGB", RGB)
-                dt = time.time() - start_time
                 if cv2.waitKey(10) == ord("q"):
                     break
         # FIR only
         elif "FLIR AX5" in models:
             for frame in count():
-                start_time = time.time()
+                FIR, FIR_fps = get_camdata(FIR_cam, "FIR")
                 if frame % 5 == 0:
                     print("\033[1A", end="")
-                    print(f"processing... at {frame} frame / {1 / dt:.3f} FPS")
-                FIR = get_camdata(FIR_cam, "FIR")
+                    print(f"processing... at {frame} frame / {FIR_fps:.3f} FPS")
                 if debug is not True:
                     FIR_video.write(FIR)
                 if calib is True:
                     FIR = detect(FIR, True)
                 cv2.namedWindow("FIR")
                 cv2.imshow("FIR", FIR)
-                dt = time.time() - start_time
                 if cv2.waitKey(10) == ord("q"):
                     break
     # exception handling

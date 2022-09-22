@@ -6,12 +6,12 @@ Harvesters for RGB-FIR Camera Capture
 
 # Todo List
 - [x] カメラのキャプチャ
-- [ ] バイナリアプリケーション化
+- [x] バイナリアプリケーション化
 - [x] 便利動画ツール
   - [x] 動画 to 画像ツール
   - [x] クロッピングツール
   - [x] キャリブレーションツール
-
+- [] cv2 writerをffmpegでpiped処理化 (qsv_hevcやcrf, vfr他)
 
 # Features
 RGB-FIRカメラの録画を行う.
