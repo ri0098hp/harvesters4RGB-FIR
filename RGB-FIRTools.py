@@ -1,11 +1,11 @@
-import os
-import cv2
 import glob
+import os
 import subprocess
-import numpy as np
-from tqdm import tqdm
 from typing import List, Tuple
 
+import cv2
+import numpy as np
+from tqdm import tqdm
 
 RGB_shape: Tuple = (1536, 2048)  # RGB解像度
 FIR_shape: Tuple = (512, 640)  # FIR解像度
@@ -32,7 +32,8 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # choose saved folder of images named by date
 # --------------------------------------------------
 def ChooseFolder(root_folder: str) -> str:
-    msg: str = f"M: 日時フォルダ名を入力: {os.listdir(root_folder)}\n>> "
+    folders: List[str] = [fp for fp in os.listdir(root_folder) if os.path.isdir(os.path.join(root_folder, fp))]
+    msg: str = f"M: 日時フォルダ名を入力: {folders}\n>> "
     save_folder: str = os.path.join(root_folder, input(msg))
     while not os.path.exists(save_folder):
         print("E: 存在しないフォルダ名です")
@@ -86,15 +87,18 @@ def mp4tojpg_converter(save_folder) -> None:
     RGBimg_fps = os.path.join(save_folders[0], "%d.jpg")
     FIRimg_fps = os.path.join(save_folders[3], "%d.jpg")
     flag: str = "RGBFIR"
-    if os.path.exists(RGBimg_fps.replace("%04d", "0001")):
-        print(f"E: 既に{child_dirs[0]}フォルダにファイルが存在しています")
-        flag.replace("RGB", "")
-    elif os.path.exists(FIRimg_fps.replace("%04d", "0001")):
-        print(f"E: 既に{child_dirs[3]}フォルダにファイルが存在しています")
-        flag.replace("FIR", "")
-    elif os.path.exists(RGBraw_fp) and os.path.exists(FIR_fp):
-        print(f'\nE: file is not existing at "{RGBraw_fp}" and "{FIR_fp}"')
-        return
+    if not os.path.exists(RGBraw_fp):
+        print(f"E: file is not existing at {RGBraw_fp}")
+        flag = flag.replace("RGB", "")
+    if not os.path.exists(FIR_fp):
+        print(f"E: file is not existing at {FIR_fp}")
+        flag = flag.replace("FIR", "")
+    if os.path.exists(RGBimg_fps.replace("%d", "1")):
+        print(f"E: already files in {child_dirs[0]} are existing")
+        flag = flag.replace("RGB", "")
+    if os.path.exists(FIRimg_fps.replace("%d", "1")):
+        print(f"E: already files in {child_dirs[3]} are existing")
+        flag = flag.replace("FIR", "")
 
     try:
         if "RGB" in flag:

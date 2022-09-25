@@ -1,10 +1,11 @@
-from harvesters.core import Harvester
-from itertools import count
-from typing import cast, Tuple
-import numpy as np
-import cv2
 import os
+from itertools import count
+from typing import Tuple, cast
 
+import cv2
+import numpy as np
+
+from harvesters.core import Harvester
 
 # User Parameters
 RGB_shape: tuple = (2048, 1536)  # (w,h)

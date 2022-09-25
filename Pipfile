@@ -10,12 +10,12 @@ nuitka = "*"
 zstandard = "*"
 tdqm = "*"
 ordered-set = "*"
-isort = "*"
 
 [dev-packages]
 flake8 = "*"
 mypy = "*"
 black = "*"
+isort = "*"
 
 [requires]
 python_version = "3.7.9"
