@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 RGB_shape: Tuple = (1536, 2048)  # RGB解像度
 FIR_shape: Tuple = (512, 640)  # FIR解像度
-child_dirs: List[str] = ["RGB_raw", "RGB_crop", "RGB", "FIR", "concat"]
+child_dirs: List[str] = ["RGB_raw", "RGB_crop", "RGB", "FIR", "concat", "RGB_mtx", "FIR_mtx"]
 ratio: float = 0.45  # 縮小比
 
 
@@ -44,7 +44,7 @@ def ChooseFolder(root_folder: str) -> str:
 # --------------------------------------------------
 # reading parameters from setting.ini
 # --------------------------------------------------
-def get_config() -> Tuple[str, bool, bool, bool, bool]:
+def get_config() -> Tuple[str, bool, bool, bool, bool, bool]:
     import configparser
 
     config_ini = configparser.ConfigParser()
@@ -60,18 +60,20 @@ def get_config() -> Tuple[str, bool, bool, bool, bool]:
             mp4tojpg = bool(int(read_default.get("mp4tojpg")))
             crop = bool(int(read_default.get("crop")))
             calibrate = bool(int(read_default.get("calibrate")))
+            cammtx = bool(int(read_default.get("cammtx")))
             merge = bool(int(read_default.get("merge")))
             print("###----------------------------------------###")
             print(f"保存先: {save_folder}")
             print(f"動画像変換: {mp4tojpg}")
             print(f"クロップ: {crop}")
             print(f"キャリブレーション: {calibrate}")
+            print(f"カメラ行列によるキャリブレーション: {cammtx}")
             print(f"RGB-FIR結合: {merge}")
             print("###----------------------------------------###")
-            return save_folder, mp4tojpg, crop, calibrate, merge
+            return save_folder, mp4tojpg, crop, calibrate, cammtx, merge
     else:
         print("E: setting.iniが見つかりません\n")
-        return rel2abs_path("out", "exe"), True, True, True, True
+        return rel2abs_path("out", "exe"), True, False, True, False, False
 
 
 # --------------------------------------------------
@@ -114,7 +116,7 @@ def mp4tojpg_converter(save_folder) -> None:
                 "-r",
                 "29.97",
                 "-start_number",
-                "0",
+                "1",
                 RGBimg_fps,
             ]
             subprocess.run(cmd)
@@ -131,7 +133,7 @@ def mp4tojpg_converter(save_folder) -> None:
                 "-r",
                 "29.97",
                 "-start_number",
-                "0",
+                "1",
                 FIRimg_fps,
             ]
             subprocess.run(cmd)
@@ -190,14 +192,52 @@ def calibrater(save_folder) -> None:
 
 
 # --------------------------------------------------
+# calibrating by using camera mtrix
+# --------------------------------------------------
+def camera_mtx(save_folder) -> None:
+    os.makedirs(os.path.join(save_folder, child_dirs[5]), exist_ok=True)
+    os.makedirs(os.path.join(save_folder, child_dirs[6]), exist_ok=True)
+    save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+    RGBraw_fps = glob.iglob(os.path.join(save_folders[0], "*.jpg"))
+    FIR_fps = glob.iglob(os.path.join(save_folders[3], "*.jpg"))
+
+    # RGB
+    k = np.load(rel2abs_path("data/RGB_cammtx.npz", "exe"))
+    mtx = k["arr_0"]
+    dist = k["arr_1"]
+    newcameramtx = k["arr_2"]
+    for fp in tqdm(RGBraw_fps, unit=" file"):
+        save_fp = fp.replace(save_folders[0], save_folders[5])
+        if os.path.exists(save_fp):
+            print("already calibrated file is existing")
+            break
+        img = cv2.imread(fp)
+        cv2.imwrite(save_fp, cv2.undistort(img, mtx, dist, None, newcameramtx))
+
+    # FIR
+    k = np.load(rel2abs_path("data/FIR_cammtx.npz", "exe"))
+    mtx = k["arr_0"]
+    dist = k["arr_1"]
+    newcameramtx = k["arr_2"]
+    for fp in tqdm(FIR_fps, unit=" file"):
+        save_fp = fp.replace(save_folders[3], save_folders[6])
+        if os.path.exists(save_fp):
+            print("already calibrated file is existing")
+            break
+        img = cv2.imread(fp)
+        cv2.imwrite(save_fp, cv2.undistort(img, mtx, dist, None, newcameramtx))
+
+
+# --------------------------------------------------
 # merging RGB and FIR images
 # --------------------------------------------------
 def merger(save_folder) -> None:
-    os.makedirs(os.path.join(save_folder, child_dirs[4]), exist_ok=True)
+    os.makedirs(os.path.join(save_folder, child_dirs[6]), exist_ok=True)
+    os.makedirs(os.path.join(save_folder, child_dirs[7]), exist_ok=True)
     save_folders = [os.path.join(save_folder, name) for name in child_dirs]
     RGB_fps = glob.glob(os.path.join(save_folders[2], "*.jpg"))
     FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
-    print("M: start merging...")
+    print("M: start calibrating camera mtrix...")
     for RGB_fp, FIR_fp in tqdm(zip(RGB_fps, FIR_fps), unit=" file"):
         concat_fp = os.path.join(save_folders[4], os.path.basename(RGB_fp))
         if os.path.exists(concat_fp):
@@ -211,7 +251,7 @@ def merger(save_folder) -> None:
 
 
 def main() -> None:
-    root_folder, mp4tojpg, crop, calibrate, merge = get_config()
+    root_folder, mp4tojpg, crop, calibrate, cammtx, merge = get_config()
     parent_dir = ChooseFolder(root_folder)
     if mp4tojpg:
         mp4tojpg_converter(parent_dir)
@@ -219,6 +259,8 @@ def main() -> None:
         cropper(parent_dir)
     if calibrate:
         calibrater(parent_dir)
+    if cammtx:
+        camera_mtx(parent_dir)
     if merge:
         merger(parent_dir)
 

@@ -10,5 +10,10 @@
 !*.ini
 !*.bat
 !*.exe
-!/src/
-!/docs/
+!src
+!src/**
+!docs
+!docs/**
+!data
+!data/**
+test.py
