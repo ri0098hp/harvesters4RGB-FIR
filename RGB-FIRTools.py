@@ -104,34 +104,34 @@ def mp4tojpg_converter(save_folder) -> None:
 
     try:
         if "RGB" in flag:
-            print("M: start RGB_raw.mp4 converting...")
+            print("M: start extracting 1 frame per sec from RGB_raw.mp4 ...")
             cmd = [
                 "ffmpeg",
                 "-loglevel",
                 "error",
+                "-r",
+                "1",
                 "-i",
                 RGBraw_fp,
                 "-q:v",
                 "1",
-                "-r",
-                "29.97",
                 "-start_number",
                 "1",
                 RGBimg_fps,
             ]
             subprocess.run(cmd)
         if "FIR" in flag:
-            print("M: start FIR.mp4 converting...")
+            print("M: start extracting 1 frame per sec from FIR.mp4 ...")
             cmd = [
                 "ffmpeg",
                 "-loglevel",
                 "error",
+                "-r",
+                "1",
                 "-i",
                 FIR_fp,
                 "-q:v",
                 "1",
-                "-r",
-                "29.97",
                 "-start_number",
                 "1",
                 FIRimg_fps,
