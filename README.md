@@ -7,11 +7,13 @@ Harvesters for RGB-FIR Camera Capture
 # Todo List
 - [x] カメラのキャプチャ
 - [x] バイナリアプリケーション化
-- [x] 便利動画ツール
+- [ ] cv2 writerをffmpegでpiped処理化 (qsv_hevcやcrf, vfr他)
+- [x] 便利ツール
   - [x] 動画 to 画像ツール
   - [x] クロッピングツール
+  - [x] 射影変換ツール
   - [x] キャリブレーションツール
-- [ ] cv2 writerをffmpegでpiped処理化 (qsv_hevcやcrf, vfr他)
+  - [x] 変換のマルチスレッド化
 
 # Features
 RGB-FIRカメラの録画を行う.
@@ -29,7 +31,8 @@ RGB-FIRカメラの録画を行う.
 既に導入済みなら飛ばしても良い.  
 今回はMATRIX VISIONの "mvIMPACT_Acquire" をつかう. [ここ](http://static.matrix-vision.com/mvIMPACT_Acquire/) から最新版を選択し, OSにあった mvGenTL_Acquire をインストールする.  
 動作確認済みなのは2.46.2で `mvGenTL_Acquire-x86_64-2.46.2.exe` .  
-ドライバをインストール後releaseからzipをダウンロードし適当なフォルダに解凍する. (git cloneでも可能)
+ドライバをインストール後releaseからzipをダウンロードし適当なフォルダに解凍する. (Pythonでビルドする場合はgit cloneから)  
+ffmpegは [ここ](https://ffmpeg.org/download.html) からダウンロードし、適当な場所に保存し環境変数を通しておく.
 
 # Usage
 ## カメラの録画 (RGB-FIRCamera.py)
@@ -45,10 +48,15 @@ RGB-FIRカメラの録画を行う.
 
 ## 録画した動画を加工 (RGB-FIRTools.py)
 [setting.ini](setting.ini) で実行する内容を選択する. その後`RGB-FIRTools.exe` をダブルクリックで起動すると選択可能なフォルダが一覧で表示されるのでその中から選択し入力する. すると各フォルダにファイルが生成される. オプションは [補足](#補足) の表を参照.
-- 動画 to 画像ツール
+- 動画 to 画像ツール (1FPSで抽出)
 - クロッピングツール
 - キャリブレーションツール
 - RGB-FIR画像結合ツール
+
+もし動画をフル (29.970 FPS) で静止画に変換したい場合はPowerShellにて次のコマンドを実施する。
+```bash
+ffmpeg -i RGB_raw.mp4 -q:v 1 -start_number 1 RGB_raw/%d.jpg
+```
 
 # Build
 ## 1. Python環境を構築
@@ -61,6 +69,7 @@ pipenv install --dev
 ```bash
 pipenv shell
 ```
+
 
 
 ## 2. セットアップツールの実行

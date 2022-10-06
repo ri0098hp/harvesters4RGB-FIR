@@ -11,128 +11,7 @@ from harvesters.core import Harvester
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
-# save_folder: str = r'./out'  #
-# root folder for saving
 cti: str = "mvGenTLProducer.cti"  # GenTL config file name
-
-
-# --------------------------------------------------
-# get date and time now
-# --------------------------------------------------
-def get_datetime() -> str:
-    import datetime
-
-    t_delta = datetime.timedelta(hours=9)
-    JST = datetime.timezone(t_delta, "JST")
-    now = datetime.datetime.now(JST)
-    return now.strftime("%Y%m%d_%H%M")
-
-
-# --------------------------------------------------
-# rel to abs path (exe folder or extracted temp folder)
-# --------------------------------------------------
-def rel2abs_path(filename: str, attr: str) -> str:
-    import sys
-
-    if attr == "temp":  # 展開先フォルダと同階層
-        datadir = os.path.dirname(__file__)
-    elif attr == "exe":  # exeファイルと同階層の絶対パス
-        datadir = os.path.dirname(sys.argv[0])
-    else:
-        raise BaseException(print(f"E: 相対パスの引数ミス [{attr}]"))
-    return os.path.join(datadir, filename)
-
-
-# --------------------------------------------------
-# reading parameters from setting.ini
-# --------------------------------------------------
-def get_config() -> Tuple[bool, bool, bool, str]:
-    import configparser
-
-    config_ini = configparser.ConfigParser()
-    config_ini_path = rel2abs_path("setting.ini", "exe")
-    # iniファイルが存在するかチェック
-    if os.path.exists(config_ini_path):
-        # iniファイルが存在する場合、ファイルを読み込む
-        with open(config_ini_path, encoding="utf-8") as fp:
-            config_ini.read_file(fp)
-            # iniの値取得
-            read_default = config_ini["DEFAULT"]
-            debug = bool(int(read_default.get("debug")))
-            calib = bool(int(read_default.get("calib")))
-            sep_mode = bool(int(read_default.get("sep_mode")))
-            save_folder = rel2abs_path(read_default.get("save_folder"), "exe")
-            print("###----------------------------------------###")
-            print(f"デバッグ: {debug}")
-            print(f"キャリブレーション: {calib}")
-            print(f"独立モード: {sep_mode}")
-            print(f"保存先: {save_folder}")
-            print("###----------------------------------------###")
-            return debug, calib, sep_mode, save_folder
-    else:
-        print("E: setting.iniが見つかりません\n")
-        return False, False, True, rel2abs_path("out", "exe")
-
-
-# --------------------------------------------------
-# setup RGBcam by GenICam parameters
-# --------------------------------------------------
-def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
-    if sep_mode is True:
-        RGB_config.TriggerMode.value = "Off"
-        RGB_config.AcquisitionFrameRate.value = FPS - 0.00375
-    else:
-        RGB_config.TriggerMode.value = "On"
-        RGB_config.TriggerSource.value = "Line0"
-        RGB_config.TriggerActivation.value = "LevelHigh"
-        RGB_config.LineDebounceTime.value = 0
-    RGB_config.ExposureAuto.value = "Continuous"
-    RGB_config.GainAuto.value = "Continuous"
-    RGB_config.TargetBrightness.value = 128
-    RGB_config.AGCRange.value = 208
-
-
-# --------------------------------------------------
-# setup FIRcam by GenICam parameters
-# --------------------------------------------------
-def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
-    if sep_mode is True:
-        FIR_config.SyncMode.value = "Disabled"
-    else:
-        FIR_config.SyncMode.value = "SelfSyncMaster"
-    FIR_config.AcquisitionMode.value = "Continuous"
-
-
-# --------------------------------------------------
-# obtain and covert GigE binary to cv2 image array
-# --------------------------------------------------
-def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
-    # set timeout for the shutter of FIR cam
-    with cam.fetch(timeout=3) as buffer:
-        framerate = cam.statistics.fps
-        component = buffer.payload.components[0]
-        width = component.width
-        height = component.height
-        data = component.data.reshape(height, width)
-        if flag == "RGB":
-            img = cv2.cvtColor(data, cv2.COLOR_BayerBG2RGB)
-        elif flag == "FIR":
-            img = cv2.cvtColor(data, cv2.COLOR_GRAY2RGB)
-        return img, framerate
-
-
-# --------------------------------------------------
-# detect circle grids and display markers
-# --------------------------------------------------
-def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    if bitwise is True:
-        gray = cv2.bitwise_not(gray)
-    ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
-    if ret is True:
-        return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
-    else:
-        return img
 
 
 def main():
@@ -148,7 +27,7 @@ def main():
 
     # Setup folders and files
     folder = os.path.join(save_folder, get_datetime())
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # mp4v, MP4V, h264, MJPG
     RGB_fp = os.path.join(folder, "RGB_raw.mp4")
     FIR_fp = os.path.join(folder, "FIR.mp4")
 
@@ -270,6 +149,123 @@ def main():
         cv2.destroyAllWindows()
         print("fin")
         h.reset()
+
+
+# --------------------------------------------------
+# get date and time now
+# --------------------------------------------------
+def get_datetime() -> str:
+    import datetime
+
+    t_delta = datetime.timedelta(hours=9)
+    JST = datetime.timezone(t_delta, "JST")
+    now = datetime.datetime.now(JST)
+    return now.strftime("%Y%m%d_%H%M")
+
+
+# --------------------------------------------------
+# rel to abs path (exe folder or extracted temp folder)
+# --------------------------------------------------
+def rel2abs_path(filename: str, attr: str) -> str:
+    import sys
+
+    if attr == "temp":  # 展開先フォルダと同階層
+        datadir = os.path.dirname(__file__)
+    elif attr == "exe":  # exeファイルと同階層の絶対パス
+        datadir = os.path.dirname(sys.argv[0])
+    else:
+        raise BaseException(print(f"E: 相対パスの引数ミス [{attr}]"))
+    return os.path.join(datadir, filename)
+
+
+# --------------------------------------------------
+# reading parameters from setting.ini
+# --------------------------------------------------
+def get_config() -> Tuple[bool, bool, bool, str]:
+    import configparser
+
+    config_ini = configparser.ConfigParser()
+    config_ini_path = rel2abs_path("setting.ini", "exe")
+    # iniファイルが存在するかチェック
+    if os.path.exists(config_ini_path):
+        # iniファイルが存在する場合、ファイルを読み込む
+        with open(config_ini_path, encoding="utf-8") as fp:
+            config_ini.read_file(fp)
+            # iniの値取得
+            read_default = config_ini["DEFAULT"]
+            debug = bool(int(read_default.get("debug")))
+            calib = bool(int(read_default.get("calib")))
+            sep_mode = bool(int(read_default.get("sep_mode")))
+            save_folder = rel2abs_path(read_default.get("save_folder"), "exe")
+            print("###----------------------------------------###")
+            print(f"デバッグ: {debug}")
+            print(f"キャリブレーション: {calib}")
+            print(f"独立モード: {sep_mode}")
+            print(f"保存先: {save_folder}")
+            print("###----------------------------------------###")
+            return debug, calib, sep_mode, save_folder
+    else:
+        print("E: setting.iniが見つかりません\n")
+        return False, False, True, rel2abs_path("out", "exe")
+
+
+# --------------------------------------------------
+# setup RGBcam by GenICam parameters
+# --------------------------------------------------
+def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
+    if sep_mode is True:
+        RGB_config.TriggerMode.value = "Off"
+        RGB_config.AcquisitionFrameRate.value = FPS  # - 0.00375
+    else:
+        RGB_config.TriggerMode.value = "On"
+        RGB_config.TriggerSource.value = "Line0"
+        RGB_config.TriggerActivation.value = "LevelHigh"
+        RGB_config.LineDebounceTime.value = 0
+    RGB_config.ExposureAuto.value = "Continuous"
+    RGB_config.GainAuto.value = "Continuous"
+    RGB_config.TargetBrightness.value = 128
+    RGB_config.AGCRange.value = 208
+
+
+# --------------------------------------------------
+# setup FIRcam by GenICam parameters
+# --------------------------------------------------
+def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
+    if sep_mode is True:
+        FIR_config.SyncMode.value = "Disabled"
+    else:
+        FIR_config.SyncMode.value = "SelfSyncMaster"
+    FIR_config.AcquisitionMode.value = "Continuous"
+
+
+# --------------------------------------------------
+# obtain and covert GigE binary to cv2 image array
+# --------------------------------------------------
+def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
+    # set timeout for the shutter of FIR cam
+    with cam.fetch(timeout=3) as buffer:
+        framerate = cam.statistics.fps
+        component = buffer.payload.components[0]
+        data = component.data.reshape(component.width, component.height)
+        if flag == "RGB":
+            img = cv2.cvtColor(data, cv2.COLOR_BayerBG2RGB)
+        elif flag == "FIR":
+            img = cv2.cvtColor(data, cv2.COLOR_GRAY2RGB)
+        return img, framerate
+
+
+# --------------------------------------------------
+# detect circle grids and display markers
+# --------------------------------------------------
+def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if bitwise is True:
+        gray = cv2.bitwise_not(gray)
+    ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
+    if ret is True:
+        return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
+    else:
+        return img
 
 
 if __name__ == "__main__":

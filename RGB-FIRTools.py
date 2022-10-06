@@ -26,7 +26,7 @@ def rel2abs_path(filename: str, attr: str) -> str:
     elif attr == "exe":  # exeファイルと同階層の絶対パス
         datadir = os.path.dirname(sys.argv[0])
     else:
-        raise BaseException(print(f"E: 相対パスの引数ミス [{attr}]"))
+        raise Exception(print(f"E: 相対パスの引数ミス [{attr}]"))
     return os.path.join(datadir, filename)
 
 
@@ -35,7 +35,7 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # --------------------------------------------------
 def ChooseFolder(root_folder: str) -> str:
     folders: List[str] = [fp for fp in os.listdir(root_folder) if os.path.isdir(os.path.join(root_folder, fp))]
-    msg: str = f"M: 日時フォルダ名を入力: {folders}\n>> "
+    msg: str = f"M: 日時フォルダ名を入力: {sorted(folders)}\n>> "
     save_folder: str = os.path.join(root_folder, input(msg))
     while not os.path.exists(save_folder):
         print("E: 存在しないフォルダ名です")
@@ -43,7 +43,7 @@ def ChooseFolder(root_folder: str) -> str:
     return save_folder
 
 
-# --------------------------------------------------
+# --------------------------------------------------S
 # reading parameters from setting.ini
 # --------------------------------------------------
 def get_config() -> Tuple[str, bool, bool, bool, bool, bool]:
@@ -111,13 +111,13 @@ def mp4tojpg_converter(save_folder) -> None:
                 "ffmpeg",
                 "-loglevel",
                 "error",
-                "-r",
-                "1",
                 "-i",
                 RGBraw_fp,
-                "-q:v",
-                "1",
+                "-qscale",
+                "0",
                 "-start_number",
+                "1",
+                "-r",
                 "1",
                 RGBimg_fps,
             ]
@@ -128,13 +128,13 @@ def mp4tojpg_converter(save_folder) -> None:
                 "ffmpeg",
                 "-loglevel",
                 "error",
-                "-r",
-                "1",
                 "-i",
                 FIR_fp,
-                "-q:v",
-                "1",
+                "-qscale",
+                "0",
                 "-start_number",
+                "1",
+                "-r",
                 "1",
                 FIRimg_fps,
             ]
