@@ -7,12 +7,13 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
+from tqdm.contrib.concurrent import thread_map
 
 RGB_shape: Tuple = (1536, 2048)  # RGB解像度
 FIR_shape: Tuple = (512, 640)  # FIR解像度
 child_dirs: List[str] = ["RGB_raw", "RGB_crop", "RGB", "FIR", "concat", "RGB_mtx", "FIR_mtx"]
 ratio: float = 0.45  # 縮小比
+dy: int = -10  # クロップのyシフト
 
 
 # --------------------------------------------------
@@ -157,7 +158,7 @@ def cropper(RGBraw_fp) -> None:
     y: int = int((RGB_shape[0] * ratio - FIR_shape[0]) / 2)
     x: int = int((RGB_shape[1] * ratio - FIR_shape[1]) / 2)
     RGB = cv2.resize(cv2.imread(RGBraw_fp), dsize=None, fx=ratio, fy=ratio)
-    RGBcrop = RGB[y : y + FIR_shape[0], x : x + FIR_shape[1]]
+    RGBcrop = RGB[y + dy : y + dy + FIR_shape[0], x : x + FIR_shape[1]]
     cv2.imwrite(RGBcrop_fp, RGBcrop)
 
 
@@ -217,7 +218,7 @@ def main() -> None:
         RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
         print("M: start cropping...")
         print(f"M: 読み込んだ画像数: {len(RGBraw_fps)}")
-        process_map(cropper, RGBraw_fps)
+        thread_map(cropper, RGBraw_fps)
         print("M: fin\n")
     if calibrate:
         # setup perspective transsform kernel
@@ -278,7 +279,7 @@ def main() -> None:
         RGB_fps = glob.glob(os.path.join(save_folders[2], "*.jpg"))
         FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
         print("M: start merging RGB-FIR imgs...")
-        process_map(merger, RGB_fps, FIR_fps)
+        thread_map(merger, RGB_fps, FIR_fps)
         print("fin\n")
 
 
