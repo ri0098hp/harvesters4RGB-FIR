@@ -8,13 +8,14 @@ import numpy as np
 from harvesters.core import Harvester
 
 # User Parameters
+
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
 cti: str = "mvGenTLProducer.cti"  # GenTL config file name
 
 
-def main():
+def main() -> None:
     # Select a mode
     debug, calib, sep_mode, save_folder = get_config()
 
@@ -27,7 +28,7 @@ def main():
 
     # Setup folders and files
     folder = os.path.join(save_folder, get_datetime())
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # mp4v, MP4V, h264, MJPG
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # MJPG < mp4v, MP4V < H264
     RGB_fp = os.path.join(folder, "RGB_raw.mp4")
     FIR_fp = os.path.join(folder, "FIR.mp4")
 
@@ -246,7 +247,9 @@ def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
     with cam.fetch(timeout=3) as buffer:
         framerate = cam.statistics.fps
         component = buffer.payload.components[0]
-        data = component.data.reshape(component.width, component.height)
+        width = component.width
+        height = component.height
+        data = component.data.reshape(height, width)
         if flag == "RGB":
             img = cv2.cvtColor(data, cv2.COLOR_BayerBG2RGB)
         elif flag == "FIR":

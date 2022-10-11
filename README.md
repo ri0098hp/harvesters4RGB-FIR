@@ -28,11 +28,20 @@ RGB-FIRカメラの録画を行う.
 
 
 # Installation
+## 1.ドライバを含むSDKのインストール
 既に導入済みなら飛ばしても良い.  
 今回はMATRIX VISIONの "mvIMPACT_Acquire" をつかう. [ここ](http://static.matrix-vision.com/mvIMPACT_Acquire/) から最新版を選択し, OSにあった mvGenTL_Acquire をインストールする.  
 動作確認済みなのは2.46.2で `mvGenTL_Acquire-x86_64-2.46.2.exe` .  
-ドライバをインストール後releaseからzipをダウンロードし適当なフォルダに解凍する. (Pythonでビルドする場合はgit cloneから)  
+
+## 2. ドライバの設定 (USB to Etherを用いている場合のみ)
+デバイスマネージャを開きGigEドライバの設定画面でジャンボフレームを設定. 基本的には大きめの値を指定.   
+RGB, FIRどちらも設定しておくとよい.
+
+## 3. ffmpegのインストール
 ffmpegは [ここ](https://ffmpeg.org/download.html) からダウンロードし、適当な場所に保存し環境変数を通しておく.
+
+## 4. ソフト本体のダウンロード
+[release](/releases/latest) からzipをダウンロードし適当なフォルダに解凍する. (Pythonでビルドする場合はgit cloneから)
 
 # Usage
 ## カメラの録画 (RGB-FIRCamera.py)
@@ -53,7 +62,7 @@ ffmpegは [ここ](https://ffmpeg.org/download.html) からダウンロードし
 - キャリブレーションツール
 - RGB-FIR画像結合ツール
 
-もし動画をフル (29.970 FPS) で静止画に変換したい場合はPowerShellにて次のコマンドを実施する。
+もし動画をフル (29.970 FPS) で静止画に変換したい場合はPowerShellにて次のコマンドを実施する. 
 ```bash
 ffmpeg -i RGB_raw.mp4 -q:v 1 -start_number 1 RGB_raw/%d.jpg
 ```
@@ -84,7 +93,7 @@ nuitkaを用いてPythonを必要としないバイナリファイルをビル�
 nuitka --follow-imports --onefile --enable-plugin=numpy .\RGB-FIRCamera.py
 ```
 ```ps
-nuitka --follow-imports --onefile --enable-plugin=numpy .\RGB-FIRTools.py
+nuitka --follow-imports --onefile --enable-plugin=numpy --nofollow-import-to=harvesters .\RGB-FIRTools.py
 ```
 
 # 補足

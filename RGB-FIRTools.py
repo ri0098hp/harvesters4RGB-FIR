@@ -17,6 +17,85 @@ dy: int = -10  # クロップのyシフト
 
 
 # --------------------------------------------------
+# main
+# --------------------------------------------------
+def main() -> None:
+    root_folder, mp4tojpg, crop, calibrate, cammtx, merge = get_config()
+    save_folder = ChooseFolder(root_folder)
+    if mp4tojpg:
+        mp4tojpg_converter(save_folder)
+    if crop:
+        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+        os.makedirs(os.path.join(save_folder, child_dirs[1]), exist_ok=True)
+        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
+        print("M: start cropping...")
+        print(f"M: 読み込んだ画像数: {len(RGBraw_fps)}")
+        thread_map(cropper, RGBraw_fps)
+        print("M: fin\n")
+    if calibrate:
+        # setup perspective transsform kernel
+        ptRGB = np.array([[335, 408], [317, 1078], [1664, 444], [1671, 1103]], dtype=np.float32)
+        ptFIR = np.array([[37, 87], [23, 390], [606, 98], [614, 395]], dtype=np.float32)
+        persMatrix = cv2.getPerspectiveTransform(ptRGB, ptFIR)
+
+        os.makedirs(os.path.join(save_folder, child_dirs[2]), exist_ok=True)
+        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
+        print("M: start calibrating...")
+        with tqdm(total=len(RGBraw_fps), unit=" file") as pbar:
+            tasks = []
+            with ThreadPoolExecutor() as executor:
+                for RGBraw_fp in RGBraw_fps:
+                    task = executor.submit(calibrater, RGBraw_fp, persMatrix)
+                    tasks += [task]
+                for f in as_completed(tasks):
+                    pbar.update(1)
+        print("M: fin\n")
+    if cammtx:
+        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+        os.makedirs(os.path.join(save_folder, child_dirs[5]), exist_ok=True)
+        os.makedirs(os.path.join(save_folder, child_dirs[6]), exist_ok=True)
+        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
+        FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
+
+        # RGB
+        k = np.load(rel2abs_path("data/RGB_cammtx.npz", "exe"))
+        folders = [os.sep + d + os.sep for d in [child_dirs[0], child_dirs[5]]]
+        print("start camera calibrating RGB imges...")
+        with tqdm(total=len(RGBraw_fps), unit=" file") as pbar:
+            tasks = []
+            with ThreadPoolExecutor() as executor:
+                for fp in RGBraw_fps:
+                    task = executor.submit(camera_mtx, fp, k, folders)
+                    tasks += [task]
+                for f in as_completed(tasks):
+                    pbar.update(1)
+        print("fin")
+
+        # FIR
+        k = np.load(rel2abs_path("data/FIR_cammtx.npz", "exe"))
+        folders = [os.sep + d + os.sep for d in [child_dirs[3], child_dirs[6]]]
+        print("start camera calibrating FIR imges...")
+        with tqdm(total=len(FIR_fps), unit=" file") as pbar:
+            tasks = []
+            with ThreadPoolExecutor() as executor:
+                for fp in FIR_fps:
+                    task = executor.submit(camera_mtx, fp, k, folders)
+                    tasks += [task]
+                for f in as_completed(tasks):
+                    pbar.update(1)
+        print("fin\n")
+    if merge:
+        os.makedirs(os.path.join(save_folder, child_dirs[4]), exist_ok=True)
+        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
+        RGB_fps = glob.glob(os.path.join(save_folders[2], "*.jpg"))
+        FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
+        print("M: start merging RGB-FIR imgs...")
+        thread_map(merger, RGB_fps, FIR_fps)
+        print("fin\n")
+
+
+# --------------------------------------------------
 # rel to abs path (exe folder or extracted temp folder)
 # --------------------------------------------------
 def rel2abs_path(filename: str, attr: str) -> str:
@@ -202,85 +281,6 @@ def merger(RGB_fp, FIR_fp) -> None:
     FIR = cv2.imread(FIR_fp)
     concat = np.concatenate((RGB, FIR), axis=1)
     cv2.imwrite(concat_fp, concat)
-
-
-# --------------------------------------------------
-# main
-# --------------------------------------------------
-def main() -> None:
-    root_folder, mp4tojpg, crop, calibrate, cammtx, merge = get_config()
-    save_folder = ChooseFolder(root_folder)
-    if mp4tojpg:
-        mp4tojpg_converter(save_folder)
-    if crop:
-        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
-        os.makedirs(os.path.join(save_folder, child_dirs[1]), exist_ok=True)
-        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
-        print("M: start cropping...")
-        print(f"M: 読み込んだ画像数: {len(RGBraw_fps)}")
-        thread_map(cropper, RGBraw_fps)
-        print("M: fin\n")
-    if calibrate:
-        # setup perspective transsform kernel
-        ptRGB = np.array([[335, 408], [317, 1078], [1664, 444], [1671, 1103]], dtype=np.float32)
-        ptFIR = np.array([[37, 87], [23, 390], [606, 98], [614, 395]], dtype=np.float32)
-        persMatrix = cv2.getPerspectiveTransform(ptRGB, ptFIR)
-
-        os.makedirs(os.path.join(save_folder, child_dirs[2]), exist_ok=True)
-        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
-        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
-        print("M: start calibrating...")
-        with tqdm(total=len(RGBraw_fps), unit=" file") as pbar:
-            tasks = []
-            with ThreadPoolExecutor() as executor:
-                for RGBraw_fp in RGBraw_fps:
-                    task = executor.submit(calibrater, RGBraw_fp, persMatrix)
-                    tasks += [task]
-                for f in as_completed(tasks):
-                    pbar.update(1)
-        print("M: fin\n")
-    if cammtx:
-        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
-        os.makedirs(os.path.join(save_folder, child_dirs[5]), exist_ok=True)
-        os.makedirs(os.path.join(save_folder, child_dirs[6]), exist_ok=True)
-        RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
-        FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
-
-        # RGB
-        k = np.load(rel2abs_path("data/RGB_cammtx.npz", "exe"))
-        folders = [os.sep + d + os.sep for d in [child_dirs[0], child_dirs[5]]]
-        print("start camera calibrating RGB imges...")
-        with tqdm(total=len(RGBraw_fps), unit=" file") as pbar:
-            tasks = []
-            with ThreadPoolExecutor() as executor:
-                for fp in RGBraw_fps:
-                    task = executor.submit(camera_mtx, fp, k, folders)
-                    tasks += [task]
-                for f in as_completed(tasks):
-                    pbar.update(1)
-        print("fin")
-
-        # FIR
-        k = np.load(rel2abs_path("data/FIR_cammtx.npz", "exe"))
-        folders = [os.sep + d + os.sep for d in [child_dirs[3], child_dirs[6]]]
-        print("start camera clibrating FIR imges...")
-        with tqdm(total=len(FIR_fps), unit=" file") as pbar:
-            tasks = []
-            with ThreadPoolExecutor() as executor:
-                for fp in FIR_fps:
-                    task = executor.submit(camera_mtx, fp, k, folders)
-                    tasks += [task]
-                for f in as_completed(tasks):
-                    pbar.update(1)
-        print("fin\n")
-    if merge:
-        os.makedirs(os.path.join(save_folder, child_dirs[4]), exist_ok=True)
-        save_folders = [os.path.join(save_folder, name) for name in child_dirs]
-        RGB_fps = glob.glob(os.path.join(save_folders[2], "*.jpg"))
-        FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
-        print("M: start merging RGB-FIR imgs...")
-        thread_map(merger, RGB_fps, FIR_fps)
-        print("fin\n")
 
 
 if __name__ == "__main__":
