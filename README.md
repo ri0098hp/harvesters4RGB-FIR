@@ -64,7 +64,7 @@ ffmpegは [ここ](https://ffmpeg.org/download.html) からダウンロードし
 
 もし動画をフル (29.970 FPS) で静止画に変換したい場合はPowerShellにて次のコマンドを実施する. 
 ```bash
-ffmpeg -i RGB_raw.mp4 -q:v 1 -start_number 1 RGB_raw/%d.jpg
+ffmpeg -i RGB_raw.mp4 -qscale 0 -start_number 1 RGB_raw/%d.jpg
 ```
 
 # Build

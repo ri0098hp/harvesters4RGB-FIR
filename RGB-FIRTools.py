@@ -1,6 +1,5 @@
 import glob
 import os
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple
 
@@ -11,16 +10,16 @@ from tqdm.contrib.concurrent import thread_map
 
 RGB_shape: Tuple = (1536, 2048)  # RGB解像度
 FIR_shape: Tuple = (512, 640)  # FIR解像度
-child_dirs: List[str] = ["RGB_raw", "RGB_crop", "RGB", "FIR", "concat", "RGB_mtx", "FIR_mtx"]
+child_dirs: List[str] = ["RGB_raw", "RGB_crop", "RGB", "FIR", "concat", "RGB_homo"]
 ratio: float = 0.45  # 縮小比
-dy: int = -10  # クロップのyシフト
+dy: int = 0  # -10? クロップのyシフト
 
 
 # --------------------------------------------------
 # main
 # --------------------------------------------------
 def main() -> None:
-    root_folder, mp4tojpg, crop, calibrate, cammtx, merge = get_config()
+    root_folder, mp4tojpg, crop, calibrate, homo, merge = get_config()
     save_folder = ChooseFolder(root_folder)
     if mp4tojpg:
         mp4tojpg_converter(save_folder)
@@ -46,41 +45,33 @@ def main() -> None:
             tasks = []
             with ThreadPoolExecutor() as executor:
                 for RGBraw_fp in RGBraw_fps:
-                    task = executor.submit(calibrater, RGBraw_fp, persMatrix)
+                    task = executor.submit(calibrater, RGBraw_fp, child_dirs[2], persMatrix)
                     tasks += [task]
                 for f in as_completed(tasks):
                     pbar.update(1)
         print("M: fin\n")
-    if cammtx:
+    if homo:
         save_folders = [os.path.join(save_folder, name) for name in child_dirs]
         os.makedirs(os.path.join(save_folder, child_dirs[5]), exist_ok=True)
-        os.makedirs(os.path.join(save_folder, child_dirs[6]), exist_ok=True)
         RGBraw_fps = glob.glob(os.path.join(save_folders[0], "*.jpg"))
         FIR_fps = glob.glob(os.path.join(save_folders[3], "*.jpg"))
 
-        # RGB
-        k = np.load(rel2abs_path("data/RGB_cammtx.npz", "exe"))
-        folders = [os.sep + d + os.sep for d in [child_dirs[0], child_dirs[5]]]
-        print("start camera calibrating RGB imges...")
+        # setup perspective transsform kernel
+        ptRGB = np.array([[335, 408], [317, 1078], [1664, 444], [1671, 1103]], dtype=np.float32)
+        ptFIR = np.array([[37, 87], [23, 390], [606, 98], [614, 395]], dtype=np.float32)
+        persMatrix = cv2.getPerspectiveTransform(ptRGB, ptFIR)
+        # load homographic kernel
+        k = np.load(rel2abs_path("data/homo_20221123.npz", "exe"))
+        homoMatrix = k["arr_0"]
+        # 合成
+        H = homoMatrix @ persMatrix
+
+        print("star perspective and homographic coverting on RGB imges...")
         with tqdm(total=len(RGBraw_fps), unit=" file") as pbar:
             tasks = []
             with ThreadPoolExecutor() as executor:
-                for fp in RGBraw_fps:
-                    task = executor.submit(camera_mtx, fp, k, folders)
-                    tasks += [task]
-                for f in as_completed(tasks):
-                    pbar.update(1)
-        print("fin")
-
-        # FIR
-        k = np.load(rel2abs_path("data/FIR_cammtx.npz", "exe"))
-        folders = [os.sep + d + os.sep for d in [child_dirs[3], child_dirs[6]]]
-        print("start camera calibrating FIR imges...")
-        with tqdm(total=len(FIR_fps), unit=" file") as pbar:
-            tasks = []
-            with ThreadPoolExecutor() as executor:
-                for fp in FIR_fps:
-                    task = executor.submit(camera_mtx, fp, k, folders)
+                for RGBraw_fp in RGBraw_fps:
+                    task = executor.submit(calibrater, RGBraw_fp, child_dirs[5], H)
                     tasks += [task]
                 for f in as_completed(tasks):
                     pbar.update(1)
@@ -123,7 +114,7 @@ def ChooseFolder(root_folder: str) -> str:
     return save_folder
 
 
-# --------------------------------------------------S
+# --------------------------------------------------
 # reading parameters from setting.ini
 # --------------------------------------------------
 def get_config() -> Tuple[str, bool, bool, bool, bool, bool]:
@@ -142,17 +133,17 @@ def get_config() -> Tuple[str, bool, bool, bool, bool, bool]:
             mp4tojpg = bool(int(read_default.get("mp4tojpg")))
             crop = bool(int(read_default.get("crop")))
             calibrate = bool(int(read_default.get("calibrate")))
-            cammtx = bool(int(read_default.get("cammtx")))
+            homo = bool(int(read_default.get("homo")))
             merge = bool(int(read_default.get("merge")))
             print("###----------------------------------------###")
             print(f"保存先: {save_folder}")
             print(f"動画像変換: {mp4tojpg}")
             print(f"クロップ: {crop}")
             print(f"キャリブレーション: {calibrate}")
-            print(f"カメラ行列によるキャリブレーション: {cammtx}")
+            print(f"カメラ行列によるキャリブレーション: {homo}")
             print(f"RGB-FIR結合: {merge}")
             print("###----------------------------------------###")
-            return save_folder, mp4tojpg, crop, calibrate, cammtx, merge
+            return save_folder, mp4tojpg, crop, calibrate, homo, merge
     else:
         print("E: setting.iniが見つかりません\n")
         return rel2abs_path("out", "exe"), True, False, True, False, False
@@ -166,59 +157,71 @@ def mp4tojpg_converter(save_folder) -> None:
     os.makedirs(os.path.join(save_folder, child_dirs[0]), exist_ok=True)
     os.makedirs(os.path.join(save_folder, child_dirs[3]), exist_ok=True)
 
-    RGBraw_fp = os.path.join(save_folder, "RGB_raw.mp4")
-    FIR_fp = os.path.join(save_folder, "FIR.mp4")
-    RGBimg_fps = os.path.join(save_folders[0], "%d.jpg")
-    FIRimg_fps = os.path.join(save_folders[3], "%d.jpg")
+    RGBraw = cv2.VideoCapture(os.path.join(save_folder, "RGB_raw.mp4"))
+    FIR = cv2.VideoCapture(os.path.join(save_folder, "FIR.mp4"))
     flag: str = "RGBFIR"
-    if not os.path.exists(RGBraw_fp):
-        print(f"E: file is not existing at {RGBraw_fp}")
+    if not RGBraw.isOpened():
+        print("E: RGBraw.mp4 file is not existing")
         flag = flag.replace("RGB", "")
-    if not os.path.exists(FIR_fp):
-        print(f"E: file is not existing at {FIR_fp}")
+    if not FIR.isOpened():
+        print("E: FIR.mp4 file is not existing")
         flag = flag.replace("FIR", "")
-    if os.path.exists(RGBimg_fps.replace("%d", "1")):
-        print(f"E: already files in {child_dirs[0]} are existing")
+    if os.path.exists(os.path.join(save_folders[0], "1.jpg")):
+        print(f"E: already img files in {child_dirs[0]} are existing")
         flag = flag.replace("RGB", "")
-    if os.path.exists(FIRimg_fps.replace("%d", "1")):
-        print(f"E: already files in {child_dirs[3]} are existing")
+    if os.path.exists(os.path.join(save_folders[3], "1.jpg")):
+        print(f"E: already img files in {child_dirs[3]} are existing")
         flag = flag.replace("FIR", "")
 
     try:
         if "RGB" in flag:
             print("M: start extracting 1 frame per sec from RGB_raw.mp4 ...")
-            cmd = [
-                "ffmpeg",
-                "-loglevel",
-                "error",
-                "-i",
-                RGBraw_fp,
-                "-qscale",
-                "0",
-                "-start_number",
-                "1",
-                "-r",
-                "1",
-                RGBimg_fps,
-            ]
-            subprocess.run(cmd)
+            id: int = 0  # 書き出しフレーム番号
+            num: int = 0  # 書き出すファイルの連番号
+            th: int = RGBraw.get(cv2.CAP_PROP_FPS)  # 1FPSで書き出す
+            frames: int = int(RGBraw.get(cv2.CAP_PROP_FRAME_COUNT))  # 動画の総フレーム数
+            with tqdm(total=frames // th, unit=" frame") as pbar:
+                tasks = []
+                with ThreadPoolExecutor() as executor:
+                    for _ in range(frames):
+                        id += 1
+                        if id >= th:
+                            num += 1
+                            id = 0
+                            task = executor.submit(
+                                cv2.imwrite,
+                                os.path.join(save_folders[0], f"{num}.jpg"),
+                                RGBraw.read()[1],
+                                [cv2.IMWRITE_JPEG_QUALITY, 100],
+                            )
+                            tasks += [task]
+                    for f in as_completed(tasks):
+                        pbar.update(1)
+
         if "FIR" in flag:
             print("M: start extracting 1 frame per sec from FIR.mp4 ...")
-            cmd = [
-                "ffmpeg",
-                "-loglevel",
-                "error",
-                "-i",
-                FIR_fp,
-                "-qscale",
-                "0",
-                "-start_number",
-                "1",
-                "-r",
-                "1",
-                FIRimg_fps,
-            ]
-            subprocess.run(cmd)
+            id = 0
+            num = 0
+            th = FIR.get(cv2.CAP_PROP_FPS)
+            frames = int(FIR.get(cv2.CAP_PROP_FRAME_COUNT))  # 動画の総フレーム数
+            with tqdm(total=frames // th, unit=" frame") as pbar:
+                tasks = []
+                with ThreadPoolExecutor() as executor:
+                    for _ in range(frames):
+                        id += 1
+                        if id >= th:
+                            num += 1
+                            id = 0
+                            task = executor.submit(
+                                cv2.imwrite,
+                                os.path.join(save_folders[3], f"{num}.jpg"),
+                                FIR.read()[1],
+                                [cv2.IMWRITE_JPEG_QUALITY, 100],
+                            )
+                            tasks += [task]
+                    for f in as_completed(tasks):
+                        pbar.update(1)
+
     except FileNotFoundError:
         print("E: ffmpegがインストールされていないか、PATHが通っていません")
     except Exception as e:
@@ -244,29 +247,14 @@ def cropper(RGBraw_fp) -> None:
 # --------------------------------------------------
 # calibrating by PerspectiveTransform
 # --------------------------------------------------
-def calibrater(RGBraw_fp, persMatrix) -> None:
-    RGB_fp = RGBraw_fp.replace(child_dirs[0], child_dirs[2])
+def calibrater(RGBraw_fp, dst_dir, persMatrix) -> None:
+    RGB_fp = RGBraw_fp.replace(child_dirs[0], dst_dir)
     if os.path.exists(RGB_fp):
         # print(f'\nE: file is existing at "{RGB_fp}"')
         return
     RGBraw = cv2.imread(RGBraw_fp)
     RGB = cv2.warpPerspective(RGBraw, persMatrix, FIR_shape[::-1])
     cv2.imwrite(RGB_fp, RGB)
-
-
-# --------------------------------------------------
-# calibrating by using camera mtrix
-# --------------------------------------------------
-def camera_mtx(fp, k, folders) -> None:
-    mtx = k["arr_0"]
-    dist = k["arr_1"]
-    newcameramtx = k["arr_2"]
-    save_fp = fp.replace(folders[0], folders[1])
-    if os.path.exists(save_fp):
-        # print("already calibrated file is existing")
-        return
-    img = cv2.imread(fp)
-    cv2.imwrite(save_fp, cv2.undistort(img, mtx, dist, None, newcameramtx))
 
 
 # --------------------------------------------------
