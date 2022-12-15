@@ -8,7 +8,6 @@ import numpy as np
 from harvesters.core import Harvester
 
 # User Parameters
-
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
 FPS: float = 29.970
@@ -17,7 +16,8 @@ cti: str = "mvGenTLProducer.cti"  # GenTL config file name
 
 def main() -> None:
     # Select a mode
-    debug, calib, sep_mode, save_folder = get_config()
+    opt = get_config()
+    debug, calib, sep_mode, save_folder = opt["debug"], opt["calib"], opt["sep_mode"], opt["save_folder"]
 
     # Connect to Camera
     h = Harvester()
@@ -182,32 +182,21 @@ def rel2abs_path(filename: str, attr: str) -> str:
 # --------------------------------------------------
 # reading parameters from setting.ini
 # --------------------------------------------------
-def get_config() -> Tuple[bool, bool, bool, str]:
-    import configparser
+def get_config() -> dict:
+    import yaml
+    import pprint
 
-    config_ini = configparser.ConfigParser()
-    config_ini_path = rel2abs_path("setting.ini", "exe")
+    config_ini_path = rel2abs_path("setting.yaml", "exe")
     # iniファイルが存在するかチェック
     if os.path.exists(config_ini_path):
         # iniファイルが存在する場合、ファイルを読み込む
-        with open(config_ini_path, encoding="utf-8") as fp:
-            config_ini.read_file(fp)
-            # iniの値取得
-            read_default = config_ini["DEFAULT"]
-            debug = bool(int(read_default.get("debug")))
-            calib = bool(int(read_default.get("calib")))
-            sep_mode = bool(int(read_default.get("sep_mode")))
-            save_folder = rel2abs_path(read_default.get("save_folder"), "exe")
-            print("###----------------------------------------###")
-            print(f"デバッグ: {debug}")
-            print(f"キャリブレーション: {calib}")
-            print(f"独立モード: {sep_mode}")
-            print(f"保存先: {save_folder}")
-            print("###----------------------------------------###")
-            return debug, calib, sep_mode, save_folder
+        with open(config_ini_path, errors="ignore") as f:
+            opt = yaml.safe_load(f)
+            pprint.pprint(opt)
+        assert len(opt.keys()) == 10, print("setting.yamlのkeyが足りません")
+        return opt
     else:
-        print("E: setting.iniが見つかりません\n")
-        return False, False, True, rel2abs_path("out", "exe")
+        raise Exception(print("E: setting.iniが見つかりません\n"))
 
 
 # --------------------------------------------------
