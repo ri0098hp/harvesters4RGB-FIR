@@ -34,8 +34,8 @@ def main() -> None:
         if opt["mp4tojpg"] != 0:
             mp4tojpg_converter(save_folder)
         if opt["crop"] != 0:
-            os.makedirs(os.path.join(save_folder, "crop"), exist_ok=True)
-            RGBraw_fps = glob.glob(os.path.join("RGB_raw", "*.jpg"))
+            os.makedirs(os.path.join(save_folder, "RGB_crop"), exist_ok=True)
+            RGBraw_fps = glob.glob(os.path.join(save_folder, "RGB_raw", "*.jpg"))
             print("M: start cropping...")
             print(f"M: 読み込んだ画像数: {len(RGBraw_fps)}")
             thread_map(cropper, RGBraw_fps)
