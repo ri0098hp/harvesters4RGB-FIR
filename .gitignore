@@ -1,7 +1,7 @@
 *
 !*.gitignore
 !*.py
-!Pipfile*
+!Pipfile
 !*.cfg
 !*.yaml
 !*.txt
@@ -15,4 +15,6 @@
 !docs/**
 !data
 !data/**
+!.github
+!.github/**
 test.py

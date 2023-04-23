@@ -1,17 +1,18 @@
 import glob
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import repeat
 from typing import List, Tuple
+
 import cv2
 import numpy as np
-from itertools import repeat
 from tqdm import tqdm
 from tqdm.contrib.concurrent import thread_map
 
 RGB_shape: Tuple = (1536, 2048)  # RGB解像度
 FIR_shape: Tuple = (512, 640)  # FIR解像度
 
-# setip kernels
+# setup kernels
 # perspective transsform
 ptRGB = np.array([[335, 408], [317, 1078], [1664, 444], [1671, 1103]], dtype=np.float32)
 ptFIR = np.array([[37, 87], [23, 390], [606, 98], [614, 395]], dtype=np.float32)
@@ -32,7 +33,7 @@ def main() -> None:
         print("\n#########################")
         print(f"M: process at {save_folder}")
         if opt["mp4tojpg"] != 0:
-            mp4tojpg_converter(save_folder)
+            mp4tojpg_converter(save_folder, opt["mp4tojpg"])
         if opt["crop"] != 0:
             os.makedirs(os.path.join(save_folder, "RGB_crop"), exist_ok=True)
             RGBraw_fps = glob.glob(os.path.join(save_folder, "RGB_raw", "*.jpg"))
@@ -125,20 +126,21 @@ def ChooseFolder(root_folder: str) -> List[str]:
 
 
 # --------------------------------------------------
-# reading parameters from setting.ini
+# reading parameters from setting.yaml
 # --------------------------------------------------
 def get_config() -> dict:
-    import yaml
     import pprint
 
+    import yaml
+
     config_ini_path = rel2abs_path("setting.yaml", "exe")
-    # iniファイルが存在するかチェック
+    # yamlファイルが存在するかチェック
     if os.path.exists(config_ini_path):
-        # iniファイルが存在する場合、ファイルを読み込む
-        with open(config_ini_path, errors="ignore") as f:
+        # yamlファイルが存在する場合、ファイルを読み込む
+        with open(config_ini_path, encoding="utf-8", errors="ignore") as f:
             opt = yaml.safe_load(f)
             pprint.pprint(opt)
-        assert len(opt.keys()) == 10, print("setting.yamlのkeyが足りません")
+        assert len(opt.keys()) == 10, print("setting.yamlのkey数が間違っています")
         return opt
     else:
         raise Exception(print("E: setting.iniが見つかりません\n"))
@@ -147,9 +149,7 @@ def get_config() -> dict:
 # --------------------------------------------------
 # convert mp4 to jpeg files by ffmpeg
 # --------------------------------------------------
-def mp4tojpg_converter(save_folder) -> None:
-    import subprocess
-
+def mp4tojpg_converter(save_folder, FPS) -> None:
     os.makedirs(os.path.join(save_folder, "RGB_raw"), exist_ok=True)
     os.makedirs(os.path.join(save_folder, "FIR"), exist_ok=True)
 
@@ -173,14 +173,9 @@ def mp4tojpg_converter(save_folder) -> None:
 
     try:
         if "RGB" in flag:
-            print("M: start extracting 1 frame per sec from RGB_raw.mp4 ...")
+            print(f"M: start extracting {FPS} frame per sec from RGB_raw.mp4 ...")
             cmd = [
                 "ffmpeg",
-                "-loglevel",
-                "error",
-                "-progress",
-                "-",
-                "-nostats",
                 "-i",
                 RGBraw_fp,
                 "-qscale",
@@ -188,19 +183,15 @@ def mp4tojpg_converter(save_folder) -> None:
                 "-start_number",
                 "1",
                 "-r",
-                "1",
+                f"{FPS}",
                 RGBimg_fps,
             ]
-            subprocess.run(cmd)
+            call_ffmpeg(cmd)
+
         if "FIR" in flag:
-            print("M: start extracting 1 frame per sec from FIR.mp4 ...")
+            print(f"M: start extracting {FPS} frame per sec from FIR.mp4 ...")
             cmd = [
                 "ffmpeg",
-                "-loglevel",
-                "error",
-                "-progress",
-                "-",
-                "-nostats",
                 "-i",
                 FIR_fp,
                 "-qscale",
@@ -208,15 +199,41 @@ def mp4tojpg_converter(save_folder) -> None:
                 "-start_number",
                 "1",
                 "-r",
-                "1",
+                f"{FPS}",
                 FIRimg_fps,
             ]
-            subprocess.run(cmd)
+            call_ffmpeg(cmd)
+
     except FileNotFoundError:
         print("E: ffmpegがインストールされていないか、PATHが通っていません")
     except Exception as e:
         print(f"E: {e}")
     print("M: fin\n")
+
+
+# --------------------------------------------------
+# call ffmpeg with cmd
+# --------------------------------------------------
+def call_ffmpeg(cmd) -> None:
+    import pexpect
+    import pexpect.popen_spawn as psp
+
+    thread = psp.PopenSpawn(cmd) if os.name == "nt" else pexpect.spawn(cmd)
+    cpl = thread.compile_pattern_list([pexpect.EOF, r"frame= *\d+", r"(.+)"])
+    while True:
+        i = thread.expect_list(cpl, timeout=None)
+        if i == 0:  # EOF
+            print()
+            break
+        elif i == 1:
+            frame_number = thread.match.group(0)
+            print("M:", frame_number[2:], "\033[1A")
+            if os.name == "nt":
+                thread.sendeof()
+            else:
+                thread.close()
+        elif i == 2:
+            pass
 
 
 # --------------------------------------------------
@@ -237,7 +254,7 @@ def cropper(RGBraw_fp) -> None:
 # calibrating by PerspectiveTransform
 # --------------------------------------------------
 def calibrater(RGBraw_fp, dst_dir, persMatrix) -> None:
-    RGB_fp = RGBraw_fp.replace("RGB_raw", dst_dir)
+    RGB_fp = RGBraw_fp.replace("FIR", dst_dir)
     if os.path.exists(RGB_fp):
         return
     RGBraw = cv2.imread(RGBraw_fp)
@@ -272,10 +289,12 @@ def fuser(from_dir, RGB_fp, FIR_fp) -> None:
 
 
 if __name__ == "__main__":
-    os.system("chcp 65001")
-    os.system("cls")
+    if os.name == "nt":
+        os.system("chcp 65001")
+        os.system("cls")
     try:
         main()
     except Exception as e:
         print(f"E: {e}")
-    os.system("PAUSE")
+    if os.name == "nt":
+        os.system("PAUSE")

@@ -1,22 +1,23 @@
-# RGB-FIRCamera.py�p�̐ݒ�
-## �f�o�b�O���[�h - �t�H���_��t�@�C�������Ȃ� [0: ����, 1: �L��]
-## �L�����u���[�V���� - �L�����u���[�V�����}�[�J�[�����o�E�\�� [0: ����, 1: �L��]
-## �Ɨ����[�h - �����M���ł͂Ȃ�FPS�w��œ��삳���� [0: ����, 1: �L��]
-## �ۑ��� - �ۑ���̃t�H���_�B���̃t�H���_�ȉ��ɓ��t�Ŏq�t�H���_�����������B
+# RGB-FIRCamera.py用の設定
+## デバッグモード - フォルダやファイルを作らない [0: 無効, 1: 有効]
+## キャリブレーション - キャリブレーションマーカーを検出・表示 [0: 無効, 1: 有効]
+## 独立モード - 同期信号ではなくFPS指定で動作させる [0: 無効, 1: 有効]
+## 保存先 - 保存先のフォルダ。そのフォルダ以下に日付で子フォルダが生成される。
 debug: 0
 calib: 0
 sep_mode: 0
 save_folder: out
 
-# RGB-FIRTools.py�p�̐ݒ�
-## ���摜�ϊ��c�[�� - RGB.mp4��FIR.mp4�����݂���ꍇ�ɘA�ԉ摜�𐶐����� (RGB_raw, FIR�ɕۑ�) [0: ����, 1: �L��]
-## �N���b�v�c�[�� - �k����FIR�̉����ɐ؂蔲�����s�� (RGB_crop�ɕۑ�) [0: ����, 1: �L��]
-## �z���O���t�B�ϊ��c�[�� - �ˉe�ϊ��ɂ��ȈՂ̈ʒu���킹���s�� (RGB_homo�ɕۑ�) [0: ����, ������: �ϊ��W����npz�t�@�C�����w��]
-## RGB-FIR�����c�[�� - �ʒu���킹���RGB��FIR�����ɕ��ׂČ������� (concat�ɕۑ�) [0: ����, ������: RGB�摜�̃t�H���_���w��]
-## RGB-FIR�Z���c�[�� - �ʒu���킹���RGB��FIR�����Z�������� (fused�ɕۑ�) [0: ����, ������: RGB�摜�̃t�H���_���w��]
+# RGB-FIRTools.py用の設定
+## 動画像変換ツール - RGB.mp4やFIR.mp4が存在する場合に連番画像を生成する (RGB_raw, FIRに保存) [0: 無効, 数値: 抽出するFPSの値]
+## クロップツール - 縮小後FIRの改造に切り抜きを行う (RGB_cropに保存) [0: 無効, 1: 有効]
+## ホモグラフィ変換ツール - 射影変換による簡易の位置合わせを行う (RGB_homoに保存) [0: 無効, 文字列: 変換係数のnpzファイルを指定]
+## RGB-FIR結合ツール - 位置合わせ後のRGBとFIRを横に並べて結合する (concatに保存) [0: 無効, 文字列: RGB画像のフォルダを指定]
+## RGB-FIR融合ツール - 位置合わせ後のRGBとFIRを加算合成する (fusedに保存) [0: 無効, 文字列: RGB画像のフォルダを指定]
+## RGB-FIR融合ツール - 位置合わせ後のRGBとFIRを加算合成する (fusedに保存) [0: 無効, 文字列: RGB画像のフォルダを指定]
 mp4tojpg: 1
 crop: 0
-pers: 1
-homo: homo_20221123.npz
-merge: RGB
-fuse: RGB
+pers: 0
+homo: homo_v1.npz
+merge: 0
+fuse: 0

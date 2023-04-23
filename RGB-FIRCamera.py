@@ -180,20 +180,21 @@ def rel2abs_path(filename: str, attr: str) -> str:
 
 
 # --------------------------------------------------
-# reading parameters from setting.ini
+# reading parameters from setting.yaml
 # --------------------------------------------------
 def get_config() -> dict:
-    import yaml
     import pprint
 
+    import yaml
+
     config_ini_path = rel2abs_path("setting.yaml", "exe")
-    # iniファイルが存在するかチェック
+    # yamlファイルが存在するかチェック
     if os.path.exists(config_ini_path):
-        # iniファイルが存在する場合、ファイルを読み込む
-        with open(config_ini_path, errors="ignore") as f:
+        # yamlファイルが存在する場合、ファイルを読み込む
+        with open(config_ini_path, encoding="utf-8", errors="ignore") as f:
             opt = yaml.safe_load(f)
             pprint.pprint(opt)
-        assert len(opt.keys()) == 10, print("setting.yamlのkeyが足りません")
+        assert len(opt.keys()) == 10, print("setting.yamlのkey数が間違っています")
         return opt
     else:
         raise Exception(print("E: setting.iniが見つかりません\n"))
