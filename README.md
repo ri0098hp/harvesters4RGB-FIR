@@ -125,7 +125,7 @@ nuitka --onefile .\RGB-FIRCamera.py
 ```
 
 ```ps
-nuitka --onefile --nofollow-import-to=harvesters --nofollow-imoprts genicam .\RGB-FIRTools.py
+nuitka --onefile --nofollow-import-to=harvesters --nofollow-import-to=genicam .\RGB-FIRTools.py
 ```
 
 ## 補足

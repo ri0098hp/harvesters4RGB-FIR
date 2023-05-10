@@ -254,7 +254,7 @@ def cropper(RGBraw_fp) -> None:
 # calibrating by PerspectiveTransform
 # --------------------------------------------------
 def calibrater(RGBraw_fp, dst_dir, persMatrix) -> None:
-    RGB_fp = RGBraw_fp.replace("FIR", dst_dir)
+    RGB_fp = RGBraw_fp.replace("RGB_raw", dst_dir)
     if os.path.exists(RGB_fp):
         return
     RGBraw = cv2.imread(RGBraw_fp)
