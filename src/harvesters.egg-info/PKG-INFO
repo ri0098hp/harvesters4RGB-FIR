@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: harvesters
-Version: 0.post0.dev9
+Version: 3.5
 Summary: Image Acquisition Library for GenICam-based Machine Vision System
 Home-page: https://github.com/genicam/harvesters
 Download-URL: https://pypi.org/project/harvesters/

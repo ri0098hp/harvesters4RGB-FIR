@@ -289,10 +289,15 @@ def fuser(from_dir, RGB_fp, FIR_fp) -> None:
 
 
 if __name__ == "__main__":
+    # 文字コード化けを起こすのを回避
     if os.name == "nt":
         os.system("chcp 65001")
         os.system("cls")
     try:
+        print("############################")
+        print("\tRGB-FIRTools")
+        print("\tvYYYY.MM.DD")
+        print("############################\n")
         main()
     except Exception as e:
         print(f"E: {e}")
