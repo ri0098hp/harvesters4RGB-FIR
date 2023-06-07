@@ -35,6 +35,7 @@ RGB-FIRカメラの録画とデータセット用の画像の抽出を行う.
 - Python 3.10
   - harvesters
   - opencv-python
+  - 場合によっては[YOLOv8-4ch](https://github.com/ri0098hp/YOLOv8-4ch)
 - GenTL Producer (Driver等を含むSDK)
 - GenICam対応カメラ (GigEまたはUSB3対応カメラ)
 

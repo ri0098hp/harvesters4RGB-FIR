@@ -32,16 +32,16 @@ def main() -> None:
     for save_folder in save_folders:
         print("\n#########################")
         print(f"M: process at {save_folder}")
-        if opt["mp4tojpg"] != 0:
+        if opt["mp4tojpg"]:
             mp4tojpg_converter(save_folder, opt["mp4tojpg"])
-        if opt["crop"] != 0:
+        if opt["crop"]:
             os.makedirs(os.path.join(save_folder, "RGB_crop"), exist_ok=True)
             RGBraw_fps = glob.glob(os.path.join(save_folder, "RGB_raw", "*.jpg"))
             print("M: start cropping...")
             print(f"M: 読み込んだ画像数: {len(RGBraw_fps)}")
             thread_map(cropper, RGBraw_fps)
             print("M: fin")
-        if opt["pers"] != 0:
+        if opt["pers"]:
             os.makedirs(os.path.join(save_folder, "RGB"), exist_ok=True)
             RGBraw_fps = glob.glob(os.path.join(save_folder, "RGB_raw", "*.jpg"))
             print("M: start calibrating...")
@@ -54,7 +54,7 @@ def main() -> None:
                     for f in as_completed(tasks):
                         pbar.update(1)
             print("M: fin")
-        if opt["homo"] != 0:
+        if opt["homo"]:
             os.makedirs(os.path.join(save_folder, "RGB_homo"), exist_ok=True)
             RGBraw_fps = glob.glob(os.path.join(save_folder, "RGB_raw", "*.jpg"))
             FIR_fps = glob.glob(os.path.join(save_folder, "FIR", "*.jpg"))
@@ -74,7 +74,7 @@ def main() -> None:
                     for f in as_completed(tasks):
                         pbar.update(1)
             print("M: fin")
-        if opt["merge"] != 0:
+        if opt["merge"]:
             os.makedirs(os.path.join(save_folder, "concat"), exist_ok=True)
             RGB_fps = glob.glob(os.path.join(save_folder, opt["merge"], "*.jpg"))
             FIR_fps = glob.glob(os.path.join(save_folder, "FIR", "*.jpg"))
@@ -82,7 +82,7 @@ def main() -> None:
             target_folders = repeat(opt["merge"], times=len(RGB_fps))
             thread_map(merger, target_folders, RGB_fps, FIR_fps)
             print("M: fin")
-        if opt["fuse"] != 0:
+        if opt["fuse"]:
             os.makedirs(os.path.join(save_folder, "fuse"), exist_ok=True)
             RGB_fps = glob.glob(os.path.join(save_folder, opt["fuse"], "*.jpg"))
             FIR_fps = glob.glob(os.path.join(save_folder, "FIR", "*.jpg"))

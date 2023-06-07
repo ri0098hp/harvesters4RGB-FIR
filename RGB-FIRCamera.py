@@ -10,6 +10,12 @@ from harvesters.core import Harvester
 # User Parameters
 RGB_shape: tuple = (2048, 1536)  # (w,h)
 FIR_shape: tuple = (640, 512)  # (w,h)
+ptRGB = np.array([[335, 408], [317, 1078], [1664, 444], [1671, 1103]], dtype=np.float32)
+ptFIR = np.array([[37, 87], [23, 390], [606, 98], [614, 395]], dtype=np.float32)
+persMatrix = cv2.getPerspectiveTransform(ptRGB, ptFIR)
+k = np.load("data/homo_v1.npz")
+homoMatrix = k["arr_0"]
+H = homoMatrix @ persMatrix
 FPS: float = 29.970
 cti: str = "mvGenTLProducer.cti"  # GenTL config file name
 
@@ -19,7 +25,7 @@ def main() -> None:
     opt = get_config()
     debug, calib, sep_mode, save_folder = opt["debug"], opt["calib"], opt["sep_mode"], opt["save_folder"]
 
-    # Connect to Camera
+    # Connect to Cameraq
     h = Harvester()
     h.add_file(os.path.join(cast(str, os.getenv("GENICAM_GENTL64_PATH")), cti))
     h.update()
@@ -40,7 +46,7 @@ def main() -> None:
         RGB_cam = h.create({"model": "STC_SCS312POE"})
         setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
-        if debug is not True:
+        if debug == 0:
             os.makedirs(folder, exist_ok=True)
             RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
             FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
@@ -49,7 +55,7 @@ def main() -> None:
         RGB_cam = h.create({"model": "STC_SCS312POE"})
         setup_RGBcam(RGB_cam.remote_device.node_map, sep_mode)
         RGB_cam.start()
-        if debug is not True:
+        if debug == 0:
             os.makedirs(folder, exist_ok=True)
             RGB_video = cv2.VideoWriter(RGB_fp, fourcc, FPS, RGB_shape)
     # FIR only
@@ -57,7 +63,7 @@ def main() -> None:
         FIR_cam = h.create({"model": "FLIR AX5"})
         setup_FIRcam(FIR_cam.remote_device.node_map, sep_mode)
         FIR_cam.start()
-        if debug is not True:
+        if debug == 0:
             os.makedirs(folder, exist_ok=True)
             FIR_video = cv2.VideoWriter(FIR_fp, fourcc, FPS, FIR_shape)
     # exception handling
@@ -81,11 +87,11 @@ def main() -> None:
                 if frame % 5 == 0:
                     print("\033[1A", end="")
                     print(f"processing... at {frame} frame / {RGB_fps:.3f} x {FIR_fps:.3f} FPS")
-                if debug is not True:
+                if debug == 0:
                     RGB_video.write(RGB)
                     FIR_video.write(FIR)
                 RGB = cv2.resize(RGB, (640, 512))
-                if calib is True:
+                if calib:
                     RGB = detect(RGB, False)
                     FIR = detect(FIR, True)
                 concat = np.concatenate((RGB, FIR), axis=1)
@@ -100,10 +106,10 @@ def main() -> None:
                 if frame % 5 == 0:
                     print("\033[1A", end="")
                     print(f"processing... at {frame} frame / {RGB_fps:.3f} FPS")
-                if debug is not True:
+                if debug == 0:
                     RGB_video.write(RGB)
                 RGB = cv2.resize(RGB, dsize=None, fx=1 / 3, fy=1 / 3)
-                if calib is True:
+                if calib:
                     RGB = detect(RGB, False)
                 cv2.namedWindow("RGB")
                 cv2.imshow("RGB", RGB)
@@ -116,9 +122,9 @@ def main() -> None:
                 if frame % 5 == 0:
                     print("\033[1A", end="")
                     print(f"processing... at {frame} frame / {FIR_fps:.3f} FPS")
-                if debug is not True:
+                if debug == 0:
                     FIR_video.write(FIR)
-                if calib is True:
+                if calib:
                     FIR = detect(FIR, True)
                 cv2.namedWindow("FIR")
                 cv2.imshow("FIR", FIR)
@@ -134,18 +140,18 @@ def main() -> None:
             RGB_cam.destroy()
             FIR_cam.stop()
             FIR_cam.destroy()
-            if debug is not True:
+            if debug == 0:
                 RGB_video.release()
                 FIR_video.release()
         elif "STC_SCS312POE" in models:
             RGB_cam.stop()
             RGB_cam.destroy()
-            if debug is not True:
+            if debug == 0:
                 RGB_video.release()
         elif "FLIR AX5" in models:
             FIR_cam.stop()
             FIR_cam.destroy()
-            if debug is not True:
+            if debug == 0:
                 FIR_video.release()
         cv2.destroyAllWindows()
         print("fin")
@@ -204,7 +210,7 @@ def get_config() -> dict:
 # setup RGBcam by GenICam parameters
 # --------------------------------------------------
 def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
-    if sep_mode is True:
+    if sep_mode:
         RGB_config.TriggerMode.value = "Off"
         RGB_config.AcquisitionFrameRate.value = FPS  # - 0.00375
     else:
@@ -222,7 +228,7 @@ def setup_RGBcam(RGB_config, sep_mode: bool) -> None:
 # setup FIRcam by GenICam parameters
 # --------------------------------------------------
 def setup_FIRcam(FIR_config, sep_mode: bool) -> None:
-    if sep_mode is True:
+    if sep_mode:
         FIR_config.SyncMode.value = "Disabled"
     else:
         FIR_config.SyncMode.value = "SelfSyncMaster"
@@ -252,10 +258,10 @@ def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
 # --------------------------------------------------
 def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    if bitwise is True:
+    if bitwise:
         gray = cv2.bitwise_not(gray)
     ret, corners = cv2.findCirclesGrid(gray, (6, 4), None, flags=1)
-    if ret is True:
+    if ret:
         return cv2.drawChessboardCorners(img, (6, 4), corners, ret)
     else:
         return img
@@ -269,7 +275,7 @@ if __name__ == "__main__":
     try:
         print("############################")
         print("\tRGB-FIRCamera")
-        print("\tvYYYY.MM.DD")
+        print("\tvYYYY.MM.DD")  # TODO: set version on actions
         print("############################\n")
         main()
     except Exception as e:
