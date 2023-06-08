@@ -1,0 +1,31 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "python.terminal.activateEnvironment": true,
+    "python.formatting.provider": "black", // フォーマッターをblackに設定
+    "python.linting.pylintEnabled": false, // pyLintをオフに
+    "python.linting.flake8Enabled": true, // flake8をオンに
+    "python.linting.enabled": true, // リンターを有効に
+    "python.linting.lintOnSave": true, // 保存時にリンターが効くように
+    "editor.formatOnSave": true, // 保存時にフォーマットをオンに
+    "editor.formatOnType": true, // タイピング時にフォーマットをオンに
+    "editor.formatOnPaste": false, // 貼り付け時のフォーマットはオフに
+    "python.formatting.blackArgs": [
+      "--line-length",
+      "120"
+    ],
+    "python.linting.flake8Args": [
+      "--max-line-length",
+      "120",
+      "--extend-ignore",
+      "E203, F403, F405, E741, E731, W503, E402, W504, E501",
+    ],
+    "terminal.integrated.fontSize": 14,
+    "git.ignoreLimitWarning": true,
+    "python.linting.mypyEnabled": false,
+  }
+}

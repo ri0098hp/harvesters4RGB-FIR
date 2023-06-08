@@ -53,10 +53,10 @@ jobs:
         include:
         - os: windows-latest
           goos: win
-          comp_cmd: powershell Compress-Archive *.exe,setting.* concat.zip
+          comp_cmd: powershell Compress-Archive *.exe,setting.*,data concat.zip
         - os: ubuntu-latest
           goos: linux
-          comp_cmd: zip concat.zip *.bin setting.*
+          comp_cmd: zip concat.zip *.bin setting.* data/*
 
     runs-on: ${{ matrix.os }}
     steps:
