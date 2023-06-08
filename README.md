@@ -1,15 +1,15 @@
 # Harvesters for RGB-FIR Camera Capture
 
-## Features
+## Demo
 
-RGB-FIRカメラの録画とデータセット用の画像の抽出を行う.
 <https://github.com/ri0098hp/harvesters4RGB-FIR/assets/104181368/cc174e1b-9ae7-4657-be90-97f1039afc9c>
 
 ## Outline
 
 - [Harvesters for RGB-FIR Camera Capture](#harvesters-for-rgb-fir-camera-capture)
-  - [Features](#features)
+  - [Demo](#demo)
   - [Outline](#outline)
+  - [Features](#features)
   - [Requirement](#requirement)
   - [Todo List](#todo-list)
   - [Installation](#installation)
@@ -28,6 +28,10 @@ RGB-FIRカメラの録画とデータセット用の画像の抽出を行う.
     - [ソフトウェアのパラメータ](#ソフトウェアのパラメータ)
     - [カメラ概要](#カメラ概要)
   - [以下引用](#以下引用)
+
+## Features
+
+RGB-FIRカメラの録画とデータセット用の画像の抽出を行う.
 
 ## Requirement
 
