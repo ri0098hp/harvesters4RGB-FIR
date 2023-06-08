@@ -18,4 +18,6 @@
 !data/**
 !.github
 !.github/**
+!weights
+!weights/*.engine
 test.py

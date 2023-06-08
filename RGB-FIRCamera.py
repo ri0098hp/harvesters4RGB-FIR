@@ -23,7 +23,13 @@ cti: str = "mvGenTLProducer.cti"  # GenTL config file name
 def main() -> None:
     # Select a mode
     opt = get_config()
-    debug, calib, sep_mode, save_folder = opt["debug"], opt["calib"], opt["sep_mode"], opt["save_folder"]
+    ch, debug, calib, sep_mode, save_folder = (
+        opt["ch"],
+        opt["debug"],
+        opt["calib"],
+        opt["sep_mode"],
+        opt["save_folder"],
+    )
 
     # Connect to Cameraq
     h = Harvester()
@@ -80,7 +86,7 @@ def main() -> None:
     try:
         print()
         # RGB-FIR mode
-        if "STC_SCS312POE" in models and "FLIR AX5" in models:
+        if "STC_SCS312POE" in models and "FLIR AX5" in models and ch == 4:
             for frame in count():
                 FIR, FIR_fps = get_camdata(FIR_cam, "FIR")
                 RGB, RGB_fps = get_camdata(RGB_cam, "RGB")
@@ -92,15 +98,15 @@ def main() -> None:
                     FIR_video.write(FIR)
                 RGB = cv2.resize(RGB, (640, 512))
                 if calib:
-                    RGB = detect(RGB, False)
-                    FIR = detect(FIR, True)
+                    RGB = detect_circle(RGB, False)
+                    FIR = detect_circle(FIR, True)
                 concat = np.concatenate((RGB, FIR), axis=1)
                 cv2.namedWindow("RGB-FIR")
                 cv2.imshow("RGB-FIR", concat)
                 if cv2.waitKey(10) == ord("q"):
                     break
         # RGB only
-        elif "STC_SCS312POE" in models:
+        elif "STC_SCS312POE" in models and ch == 3:
             for frame in count():
                 RGB, RGB_fps = get_camdata(RGB_cam, "RGB")
                 if frame % 5 == 0:
@@ -110,13 +116,13 @@ def main() -> None:
                     RGB_video.write(RGB)
                 RGB = cv2.resize(RGB, dsize=None, fx=1 / 3, fy=1 / 3)
                 if calib:
-                    RGB = detect(RGB, False)
+                    RGB = detect_circle(RGB, False)
                 cv2.namedWindow("RGB")
                 cv2.imshow("RGB", RGB)
                 if cv2.waitKey(10) == ord("q"):
                     break
         # FIR only
-        elif "FLIR AX5" in models:
+        elif "FLIR AX5" in models and ch == 1:
             for frame in count():
                 FIR, FIR_fps = get_camdata(FIR_cam, "FIR")
                 if frame % 5 == 0:
@@ -125,7 +131,7 @@ def main() -> None:
                 if debug == 0:
                     FIR_video.write(FIR)
                 if calib:
-                    FIR = detect(FIR, True)
+                    FIR = detect_circle(FIR, True)
                 cv2.namedWindow("FIR")
                 cv2.imshow("FIR", FIR)
                 if cv2.waitKey(10) == ord("q"):
@@ -200,7 +206,7 @@ def get_config() -> dict:
         with open(config_ini_path, encoding="utf-8", errors="ignore") as f:
             opt = yaml.safe_load(f)
             pprint.pprint(opt)
-        assert len(opt.keys()) == 10, print("setting.yamlのkey数が間違っています")
+        assert len(opt.keys()) == 12, print("setting.yamlのkey数が間違っています")
         return opt
     else:
         raise Exception(print("E: setting.iniが見つかりません\n"))
@@ -256,7 +262,7 @@ def get_camdata(cam, flag: str) -> Tuple[np.ndarray, int]:
 # --------------------------------------------------
 # detect circle grids and display markers
 # --------------------------------------------------
-def detect(img: np.ndarray, bitwise: bool) -> np.ndarray:
+def detect_circle(img: np.ndarray, bitwise: bool) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     if bitwise:
         gray = cv2.bitwise_not(gray)
