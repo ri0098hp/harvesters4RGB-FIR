@@ -155,6 +155,19 @@ nuitka --onefile --nofollow-import-to=harvesters --nofollow-import-to=genicam .\
 
 ### カメラ概要
 
+| FIR Camera       | about                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Sensor           | 1型 (13.2mm x 8.8mm)                                                                                    |
+| FOV              | 横45°, 縦37°                                                                                            |
+| 距離 to ピクセル | 170cmのオブジェクトについて23mのとき56px [[詳細](https://www.scantips.com/lights/subjectdistance.html)] |
+
+以下計算式.
+焦点距離$f$, 対象物の高さ$h_{obj}$, 距離$d$, 縦方向のセンササイズ$h_{sen}$, 縦の視野角$FOV_{h}$
+
+```math
+f\times h_{obj} = d\times h_{sen},\quad FOV_{h} = 2\times \arctan{\left(\frac{h_{sen}}{2f}\right)}
+```
+
 RGBカメラ: [STC_SCS312POE](docs\STC_SCS312POE.pdf)
 FIRカメラ: [FLIR_AX5](docs\FLIR_AX5.pdf)
 アタッチメント: [HR10A-7R-6SC](docs/HR10A-7R-6SC.pdf)
